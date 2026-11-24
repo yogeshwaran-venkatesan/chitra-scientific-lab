@@ -94,3 +94,6 @@ real product data/photos, current certificates, GSTIN, hosting. See the quotatio
 
 ## Node.js version
 Angular CLI 22 needs Node.js 22.22.3+ (or 24.15+). With an older Node, `npm start` refuses to run. Either update Node from nodejs.org (LTS installer), or run the already-built site with `npm run preview` (serves `dist/chitra-scientific/browser` on http://localhost:4200, works on any Node 18+). `dist/` must be rebuilt with `npm run build` after code changes. Vercel uses its own Node 22/24 and is not affected.
+
+## Repository
+GitHub: https://github.com/yogeshwaran-venkatesan/chitra-scientific-lab (branch `main`). `dist/` and `node_modules/` are not committed; Vercel runs `npm run build` itself. Commit each change together with the matching PROJECT_GUIDE.md update.
