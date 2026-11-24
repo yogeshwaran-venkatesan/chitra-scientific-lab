@@ -1,4 +1,5 @@
 # Chitra Scientific — clickable prototype · PROJECT_GUIDE
+> **Going live:** see `PROJECT.md` for everything the project still needs (client data, accounts, Razorpay, DLT/SMS, WhatsApp, hosting, env variables, release plan, go-live and handover checklists).
 
 Sales prototype for **Chitra Scientific Industries** (Valasaravakkam, Chennai — lab instruments, glassware, chemicals, lab furniture).
 Built by Custom Software Developers to show the client the website + e-commerce + B2B platform quoted in
