@@ -1,0 +1,136 @@
+/* Chitra Scientific — design system v2 ("clear glass, precise work"). See DESIGN_DIRECTION.md */
+
+:root {
+  /* v3 — brand colours sampled from the Chitra Scientific wordmark (green + maroon) */
+  --night: #0c1d15;
+  --night-2: #13281e;
+  --ink: #141614;
+  --muted: #5f6661;
+  --porcelain: #fafaf8;
+  --paper: #ffffff;
+  --teal: #0b5a33;          /* brand green (wordmark) */
+  --teal-deep: #084227;
+  --teal-50: #eef5f0;
+  --mint: #b9dcc6;
+  --reagent: #141614;       /* primary action = near-black (Vercel-like) */
+  --reagent-deep: #8a5a12;
+  --maroon: #7a0e1b;        /* brand maroon ("INDUSTRIES") — sparing */
+  --magenta: #b4232f;
+  --ok: #1d7a45;
+  --line: #ebebe8;
+  --line-2: #dcddd9;
+
+  --glass: var(--porcelain); --glass-2: #f1f2ef; --petrol: var(--teal); --petrol-deep: var(--teal-deep);
+  --amber: #c7861d; --amber-deep: var(--reagent-deep); --litmus: var(--magenta);
+
+  --r-xs: 6px; --r-s: 8px; --r-m: 12px; --r-l: 20px;
+  --radius-s: var(--r-s); --radius-m: var(--r-m);
+  --shadow-1: 0 1px 2px rgba(20, 22, 20, .04);
+  --shadow-2: 0 1px 2px rgba(20, 22, 20, .04), 0 8px 24px -12px rgba(20, 22, 20, .18);
+  --shadow-3: 0 24px 48px -24px rgba(12, 29, 21, .4);
+  --wrap: 1200px;
+  --display: 'Newsreader Variable', 'Iowan Old Style', Georgia, serif;
+  --font: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --step--1: .8125rem; --step-0: 1rem; --step-1: 1.1875rem; --step-2: 1.5rem;
+  --step-3: clamp(1.75rem, 2.4vw, 2.25rem);
+  --step-4: clamp(2.1rem, 3.6vw, 3rem);
+  --step-5: clamp(2.4rem, 4.6vw, 3.6rem);
+  --ease: cubic-bezier(.2, .7, .2, 1);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; font-family: var(--font); font-size: var(--step-0); line-height: 1.55; color: var(--ink);
+  background: var(--porcelain); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+img, svg { max-width: 100%; }
+a { color: var(--teal); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--teal-deep); }
+h1, h2 { margin: 0 0 .5em; font-family: var(--display); font-weight: 420; line-height: 1.1; letter-spacing: -.018em; font-optical-sizing: auto; }
+h1 { font-size: var(--step-4); }
+h2 { font-size: var(--step-3); }
+h3, h4 { margin: 0 0 .5em; font-family: var(--font); font-size: var(--step-1); font-weight: 600; letter-spacing: -.012em; line-height: 1.25; }
+p { margin: 0 0 1em; max-width: 66ch; }
+:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 4px; }
+::selection { background: #cfe6d7; color: var(--ink); }
+
+.wrap { max-width: var(--wrap); margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+.muted { color: var(--muted); }
+.small { font-size: var(--step--1); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.num { font-family: var(--font); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+
+/* graduation marks — kept as a quiet detail */
+.scale { height: 12px; opacity: .3;
+  background: repeating-linear-gradient(90deg, currentColor 0 1px, transparent 1px 8px) bottom / 100% 5px no-repeat,
+              repeating-linear-gradient(90deg, currentColor 0 1px, transparent 1px 40px) bottom / 100% 12px no-repeat; }
+.scale-v { width: 12px; opacity: .3;
+  background: repeating-linear-gradient(180deg, currentColor 0 1px, transparent 1px 8px) left / 5px 100% no-repeat,
+              repeating-linear-gradient(180deg, currentColor 0 1px, transparent 1px 40px) left / 12px 100% no-repeat; }
+
+/* Buttons — pills */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px;
+  border-radius: 999px; border: 1.5px solid transparent; font: inherit; font-weight: 600; font-size: .95rem; letter-spacing: -.005em;
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: background-color .2s var(--ease), border-color .2s, color .2s, transform .2s var(--ease), box-shadow .2s;
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--ink); color: #fff; }
+.btn-primary:hover { background: #2b2e2b; color: #fff; }
+.btn-dark { background: var(--teal); color: #fff; }
+.btn-dark:hover { background: var(--teal-deep); color: #fff; }
+.btn-line { background: var(--paper); color: var(--ink); border-color: var(--line-2); }
+.btn-line:hover { border-color: var(--ink); color: var(--ink); }
+.btn-ghost { background: transparent; color: var(--ink); padding: 0 12px; }
+.btn-ghost:hover { background: rgba(11, 34, 39, .06); }
+.btn-glass { background: rgba(255, 255, 255, .08); color: #fff; border-color: rgba(255, 255, 255, .22); backdrop-filter: blur(8px); }
+.btn-glass:hover { background: rgba(255, 255, 255, .16); color: #fff; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-sm { min-height: 38px; padding: 0 14px; font-size: .875rem; }
+
+/* Forms */
+.field { display: grid; gap: 6px; margin-bottom: 14px; }
+.field label { font-weight: 560; font-size: .9rem; }
+.field .hint { font-size: var(--step--1); color: var(--muted); }
+.field .err { font-size: var(--step--1); color: var(--magenta); font-weight: 600; }
+input[type=text], input[type=email], input[type=tel], input[type=number], input[type=search], input[type=password], input[type=date], select, textarea {
+  font: inherit; color: var(--ink); background: var(--paper); border: 1.5px solid var(--line-2); border-radius: var(--r-s);
+  padding: 10px 14px; min-height: 46px; width: 100%; transition: border-color .15s, box-shadow .15s;
+}
+input[type=file] { font: inherit; font-size: .9rem; }
+textarea { min-height: 110px; resize: vertical; }
+input:hover, select:hover, textarea:hover { border-color: #b9c8c5; }
+input:focus, select:focus, textarea:focus { border-color: var(--ink); outline: none; box-shadow: 0 0 0 3px rgba(20, 22, 20, .08); }
+input.invalid, textarea.invalid, select.invalid { border-color: var(--magenta); }
+
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-m); padding: 24px; }
+
+.stock { display: inline-flex; align-items: center; gap: 6px; font-size: var(--step--1); font-weight: 560; }
+.stock::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent); }
+.stock.in { color: var(--ok); }
+.stock.low { color: var(--reagent-deep); }
+.stock.order { color: var(--muted); }
+
+.page-head { padding-top: 44px; padding-bottom: 28px; }
+.page-head h1 { margin-bottom: 12px; }
+.crumbs { font-size: var(--step--1); color: var(--muted); margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; }
+.crumbs a { color: var(--muted); text-decoration: none; }
+.crumbs a:hover { color: var(--teal); text-decoration: underline; }
+
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--teal-50); color: var(--teal-deep); white-space: nowrap; }
+.badge[data-s='PAYMENT_PENDING'], .badge[data-s='REQUESTED'], .badge[data-s='PENDING'] { background: #fdf1dc; color: #8a5a0a; }
+.badge[data-s='QUOTED'], .badge[data-s='SHIPPED'] { background: #e4effd; color: #1d4f91; }
+.badge[data-s='DELIVERED'], .badge[data-s='APPROVED'] { background: #e3f4ea; color: #17663e; }
+.badge[data-s='CANCELLED'], .badge[data-s='REJECTED'], .badge[data-s='EXPIRED'] { background: #fbe7ef; color: #8f1f55; }
+
+.demo-note { font-size: var(--step--1); color: var(--muted); border-left: 2px solid var(--amber); padding: 8px 12px; background: #fbf7ee; border-radius: 0 8px 8px 0; }
+
+@media print {
+  .no-print, header.top, .utility, footer.foot, .wa, .toast, .contract-bar, .announce { display: none !important; }
+  body { background: #fff; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

@@ -1,0 +1,119 @@
+<cs-hero-carousel />
+
+<!-- Verifiable credentials -->
+<section class="wrap facts" aria-label="Certifications and registrations">
+  <div><b>ISO 13485:2016</b><span>Medical devices quality management system, certified by AGQR Certifications</span></div>
+  <div><b>Udyam registered MSME</b><span>Ministry of Micro, Small &amp; Medium Enterprises, Government of India</span></div>
+  <div><b>GeM registered</b><span>Supplies government departments through the Government e-Marketplace</span></div>
+  <div><b>Authorised stockist</b><span>Merck, Borosil, Whatman, Mettler Toledo, Remi, Tarsons and more</span></div>
+</section>
+
+<!-- Catalogue with the company's own photographs -->
+<section class="wrap sec">
+  <header class="sec-head">
+    <h2>What we supply</h2>
+    <a routerLink="/products" class="more">View all products <cs-icon name="arrow" [size]="16" /></a>
+  </header>
+  <div class="cat-grid">
+    @for (c of cats; track c.slug) {
+      <a class="cat" [routerLink]="['/products', c.slug]">
+        <span class="cat-img"><img [src]="c.photo" [alt]="c.name" loading="lazy" width="320" height="251" /></span>
+        <span class="cat-name">{{ c.name }}</span>
+        <span class="cat-n">{{ c.count }} products</span>
+      </a>
+    }
+  </div>
+</section>
+
+<!-- A note from the company -->
+<section class="wrap sec note">
+  <img src="img/logo-mark.webp" alt="" width="96" height="92" />
+  <blockquote>
+    <p>“{{ co.quality }}”</p>
+    <footer><b>{{ co.leader.name }}</b> · {{ co.leader.title }}, Chitra Scientific Industries</footer>
+  </blockquote>
+</section>
+
+<!-- Popular products -->
+<section class="wrap sec">
+  <header class="sec-head">
+    <div><h2>Ordered most by laboratories</h2><p class="muted">Prices are shown openly. Order online with a GST invoice, or ask for a quotation.</p></div>
+    <a routerLink="/products" class="more">Full price list <cs-icon name="arrow" [size]="16" /></a>
+  </header>
+  <div class="pricelist">
+    @for (p of popular; track p.slug) {
+      <div class="pl-row">
+        <span><a [routerLink]="['/product', p.slug]">{{ p.name }}</a><small>{{ p.brand }} · {{ p.pack }}</small></span>
+        <span class="pl-price num">{{ inr(store.unitPrice(p)) }} <small class="muted">+ GST</small></span>
+        <button type="button" class="pl-add" [class.on]="store.inCart(p.slug)" (click)="store.addToCart(p)">{{ store.inCart(p.slug) ? 'In cart · ' + store.inCart(p.slug) : 'Add to cart' }}</button>
+      </div>
+    }
+  </div>
+  <p class="pl-note">Institutions see their agreed contract prices after signing in.</p>
+</section>
+
+<!-- How buying works + institutions -->
+<section class="wrap sec how">
+  <div>
+    <h2>How ordering works</h2>
+    <ol class="steps">
+      <li><b>Choose what you need</b><span>Add items to the cart to buy now, or to the quote basket when your office needs a formal quotation.</span></li>
+      <li><b>Pay, or approve our quotation</b><span>Pay online by UPI, card or net banking. Institutions can approve a quotation and attach their purchase order.</span></li>
+      <li><b>Receive, with installation</b><span>Track the order from your account. Instruments are installed and demonstrated by our team.</span></li>
+    </ol>
+  </div>
+  <aside class="inst">
+    <h3>For colleges, hospitals and companies</h3>
+    <p class="muted">Register your department once and buy the way your institution works.</p>
+    <ul>
+      <li><cs-icon name="check" [size]="18" /> Agreed contract prices shown after you sign in</li>
+      <li><cs-icon name="check" [size]="18" /> Formal quotations for your purchase committee</li>
+      <li><cs-icon name="check" [size]="18" /> Purchase orders and credit terms</li>
+      <li><cs-icon name="check" [size]="18" /> GST invoices and order history for audits</li>
+    </ul>
+    <a class="btn btn-dark" routerLink="/register">Register your institution</a>
+  </aside>
+</section>
+
+<!-- Lab projects -->
+<section class="wrap sec project">
+  <img src="img/cat-furniture.webp" alt="Laboratory island bench with reagent shelves" loading="lazy" width="320" height="251" />
+  <div>
+    <h2>Setting up a new laboratory</h2>
+    <p>We design and furnish complete laboratories — benches, fume cupboards, sinks and storage — and supply every instrument and piece of glassware on your list, installed and commissioned.</p>
+    <a class="more" routerLink="/lab-furnishing">How a lab project runs <cs-icon name="arrow" [size]="16" /></a>
+  </div>
+</section>
+
+<!-- Who we supply -->
+<section class="wrap sec">
+  <header class="sec-head"><h2>Who we supply</h2><a routerLink="/industries" class="more">All industries <cs-icon name="arrow" [size]="16" /></a></header>
+  <ul class="who">
+    @for (x of industries; track x.name) { <li><b>{{ x.name }}</b><span>{{ x.note }}</span></li> }
+  </ul>
+</section>
+
+<!-- Brands -->
+<section class="wrap sec">
+  <header class="sec-head"><h2>Brands we stock</h2><a routerLink="/brands" class="more">All brands <cs-icon name="arrow" [size]="16" /></a></header>
+  <div class="brands">
+    @for (g of brandGroups; track g[0]) {
+      <div><h3>{{ g[0] }}</h3><p>{{ g[1].join(', ') }}</p></div>
+    }
+  </div>
+</section>
+
+<!-- Visit -->
+<section class="wrap sec visit">
+  <div class="visit-text">
+    <h2>Visit or call us</h2>
+    <address>{{ co.name }}<br>@for (l of co.address; track l) { {{ l }}<br> }</address>
+    <dl>
+      <dt>Phone</dt><dd>@for (p of co.phones; track p; let last = $last) { <a [href]="'tel:+91' + p.split(' ').join('')">{{ p }}</a>{{ last ? '' : ' · ' }} }</dd>
+      <dt>Email</dt><dd><a [href]="'mailto:' + co.emails[0]">{{ co.emails[0] }}</a></dd>
+    </dl>
+    <a class="btn btn-line" routerLink="/contact">Send us a message</a>
+  </div>
+  <iframe class="map" title="Map showing Chitra Scientific Industries, Valasaravakkam, Chennai" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+    src="https://www.google.com/maps?q=Venkatasubramania+Samy+Nagar+Valasaravakkam+Chennai+600087&output=embed"></iframe>
+</section>

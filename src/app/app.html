@@ -1,0 +1,114 @@
+<a class="skip" href="#main">Skip to content</a>
+@if (!isAdmin()) {
+  @if (store.db().content.bannerOn && store.db().content.banner) {
+    <div class="announce"><div class="wrap announce-in"><span>{{ store.db().content.banner }}</span>
+      <span class="announce-contacts"><a [href]="'tel:+91' + company.phones[1].split(' ').join('')"><cs-icon name="phone" [size]="13" /> {{ company.phones[1] }}</a></span></div></div>
+  }
+  <header class="top" [class.scrolled]="scrolled()">
+    <div class="wrap top-in">
+      <a routerLink="/" class="brand" aria-label="Chitra Scientific Industries — home"><cs-logo [size]="44" /></a>
+
+      <nav class="nav" aria-label="Main">
+        <button type="button" class="navlink" [class.on]="productsOpen()" (click)="productsOpen.set(!productsOpen())" [attr.aria-expanded]="productsOpen()" aria-controls="mega">
+          Products <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+        <a class="navlink" routerLink="/industries" routerLinkActive="on">Industries</a>
+        <a class="navlink" routerLink="/lab-furnishing" routerLinkActive="on">Lab projects</a>
+        <a class="navlink" routerLink="/about" routerLinkActive="on">About</a>
+        <a class="navlink" routerLink="/contact" routerLinkActive="on">Contact</a>
+      </nav>
+
+      <form class="search" role="search" (ngSubmit)="search()">
+        <cs-icon name="search" [size]="18" />
+        <label class="sr-only" for="q">Search products</label>
+        <input id="q" type="search" name="q" [(ngModel)]="q" placeholder="Search products" autocomplete="off" />
+      </form>
+
+      <nav class="actions" aria-label="Your account">
+        <a [routerLink]="store.customer() ? '/account' : '/login'" class="act" [attr.aria-label]="store.customer() ? 'My account' : 'Sign in'">
+          <cs-icon name="user" [size]="21" /><span class="act-label">{{ store.customer() ? firstName() : 'Sign in' }}</span>
+          @if (store.pendingQuoteCount()) { <b class="count">{{ store.pendingQuoteCount() }}</b> }
+        </a>
+        <a routerLink="/quote" class="act" aria-label="Quote basket"><cs-icon name="basket" [size]="21" /><span class="act-label">Quote</span>
+          @if (store.basketCount() > 0) { <b class="count">{{ store.basketCount() }}</b> }</a>
+        <a routerLink="/cart" class="act act-cart" aria-label="Cart"><cs-icon name="cart" [size]="21" /><span class="act-label">Cart</span>
+          @if (store.cartCount() > 0) { <b class="count">{{ store.cartCount() }}</b> }</a>
+        <button class="act menu-btn" type="button" (click)="menuOpen.set(!menuOpen())" [attr.aria-expanded]="menuOpen()" aria-controls="mobnav" aria-label="Menu">
+          <cs-icon [name]="menuOpen() ? 'close' : 'menu'" [size]="22" />
+        </button>
+      </nav>
+    </div>
+
+    @if (productsOpen()) {
+      <div class="mega" id="mega">
+        <div class="wrap mega-in">
+          <div class="mega-cols">
+            @for (g of groups; track g.name) {
+              <div>
+                <h4>{{ g.name }}</h4>
+                <ul>@for (c of g.categories; track c.slug) { <li><a [routerLink]="['/products', c.slug]">{{ c.name }}</a></li> }</ul>
+              </div>
+            }
+          </div>
+          <a class="mega-feature" routerLink="/lab-furnishing">
+            <span class="mf-k">Lab projects</span>
+            <b>Setting up a new laboratory?</b>
+            <span>Benches, fume cupboards and every instrument — designed, supplied and installed.</span>
+            <span class="mf-go">See how it works <cs-icon name="arrow" [size]="16" /></span>
+          </a>
+        </div>
+      </div>
+    }
+
+    @if (menuOpen()) {
+      <nav class="mobnav" id="mobnav" aria-label="Mobile">
+        <a routerLink="/products">All products</a>
+        @for (g of groups; track g.name) { <a [routerLink]="['/products']" [fragment]="g.name" class="sub">{{ g.name }}</a> }
+        <a routerLink="/industries">Industries</a><a routerLink="/lab-furnishing">Lab projects</a><a routerLink="/brands">Brands</a>
+        <a routerLink="/certifications">Certifications</a><a routerLink="/about">About</a><a routerLink="/contact">Contact</a>
+        <a routerLink="/quote">Quote basket ({{ store.basketCount() }})</a>
+      </nav>
+    }
+
+    @if (store.institution(); as i) {
+      <div class="contract-bar" [class.pending]="i.status !== 'APPROVED'"><div class="wrap">
+        @if (i.status === 'APPROVED') { <cs-icon name="shield" [size]="16" /> {{ i.name }} — contract prices ({{ i.contractPct }}% off) and {{ i.creditDays }}-day credit are on. }
+        @else { {{ i.name }} is waiting for approval. You can request quotations now; contract prices start after approval. }
+      </div></div>
+    }
+  </header>
+}
+
+<main id="main">
+  <router-outlet />
+</main>
+
+@if (!isAdmin()) {
+  <footer class="foot">
+    <div class="wrap foot-in">
+      <div class="foot-brand">
+        <cs-logo [size]="48" />
+        <p>{{ company.line }}.</p>
+        <address>@for (l of company.address; track l) { {{ l }}<br> }</address>
+      </div>
+      <div><h4>Products</h4><ul>@for (g of groups; track g.name) { <li><a [routerLink]="['/products']" [fragment]="g.name">{{ g.name }}</a></li> }</ul></div>
+      <div><h4>Company</h4><ul>
+        <li><a routerLink="/about">About us</a></li><li><a routerLink="/industries">Industries we serve</a></li><li><a routerLink="/lab-furnishing">Lab projects</a></li>
+        <li><a routerLink="/certifications">Certifications</a></li><li><a routerLink="/brands">Brands we stock</a></li><li><a routerLink="/register">Institution account</a></li></ul></div>
+      <div><h4>Talk to us</h4><ul>
+        @for (p of company.phones; track p) { <li><a [href]="'tel:+91' + p.split(' ').join('')">{{ p }}</a></li> }
+        @for (e of company.emails; track e) { <li><a [href]="'mailto:' + e">{{ e }}</a></li> }</ul></div>
+    </div>
+    <div class="wrap foot-base small">
+      <span>© {{ year }} {{ company.name }} · Prices in this prototype are samples</span>
+      <span><a routerLink="/admin">Staff login</a> · <button class="linkbtn" type="button" (click)="store.resetDemo()">Reset demo data</button> · Prototype by Custom Software Developers</span>
+    </div>
+  </footer>
+
+  <a class="wa" [href]="waLink()" target="_blank" rel="noopener" aria-label="Chat on WhatsApp"><cs-icon name="whatsapp" [size]="26" /></a>
+}
+
+@if (store.toast(); as t) {
+  <div class="toast" role="status" aria-live="polite"><cs-icon name="check" [size]="18" /> <span>{{ t }}</span>
+    @if (store.toastLink()) { <a [routerLink]="store.toastLink()">View</a> }</div>
+}

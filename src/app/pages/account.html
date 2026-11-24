@@ -1,0 +1,85 @@
+<div class="wrap page-head acc-head">
+  <div>
+    <p class="muted small">My account</p>
+    <h1>{{ store.customer()?.name }}</h1>
+    @if (store.institution(); as i) { <p class="muted">{{ i.name }} · {{ i.dept }} <span class="badge" [attr.data-s]="i.status">{{ i.status === 'APPROVED' ? 'Approved institution' : S[i.status] }}</span></p> }
+  </div>
+  <button class="btn btn-line btn-sm" type="button" (click)="logout()">Sign out</button>
+</div>
+
+<div class="wrap">
+  @if (store.institution(); as i) {
+    @if (i.status === 'APPROVED') {
+      <div class="stats">
+        <div><span>Contract discount</span><b class="num">{{ i.contractPct }}%</b></div>
+        <div><span>Credit terms</span><b class="num">{{ i.creditDays }} days</b></div>
+        <div><span>Credit outstanding</span><b class="num">{{ inr(creditDue()) }}</b></div>
+        <div><span>Quotations waiting</span><b class="num">{{ store.pendingQuoteCount() }}</b></div>
+      </div>
+    }
+  }
+
+  <nav class="tabs" aria-label="Account sections">
+    @for (t of tabs(); track t[0]) { <a [routerLink]="['/account', t[0]]" [class.on]="tab() === t[0]">{{ t[1] }}@if (t[0] === 'quotations' && store.pendingQuoteCount()) { <b class="dotc">{{ store.pendingQuoteCount() }}</b> }</a> }
+  </nav>
+
+  @switch (tab()) {
+    @case ('quotations') {
+      @if (!store.myQuotes().length) { <div class="panel empty-s">No quotations yet. Add items to the <a routerLink="/quote">quote basket</a> and send a request.</div> }
+      <div class="list">
+        @for (q of store.myQuotes(); track q.id) {
+          <a class="row" [routerLink]="['/account/quotations', q.id]">
+            <span><b>{{ q.number }}</b><small>{{ q.lines.length }} {{ q.lines.length === 1 ? 'item' : 'items' }} · requested {{ dt(q.createdAt) }} by {{ q.customerName }}</small></span>
+            <span class="badge" [attr.data-s]="q.status">{{ S[q.status] }}</span>
+            <span class="go"><cs-icon name="arrow" [size]="18" /></span>
+          </a>
+        }
+      </div>
+    }
+    @case ('addresses') {
+      <div class="addr">
+        @for (a of store.customer()?.addresses ?? []; track a.line1) {
+          <div class="panel"><b>{{ a.name }}</b><p class="small">{{ a.line1 }}<br>{{ a.line2 }}<br>{{ a.city }}, {{ a.state }} {{ a.pin }}<br>Ph {{ a.phone }}</p></div>
+        } @empty { <div class="panel empty-s">No saved addresses yet — the address you use at checkout is saved here.</div> }
+      </div>
+    }
+    @case ('team') {
+      @if (store.institution(); as i) {
+        <div class="two-col">
+          <div class="panel">
+            <h2 class="h3">{{ i.name }}</h2>
+            <dl class="kv"><dt>Department</dt><dd>{{ i.dept }}</dd><dt>GSTIN</dt><dd>{{ i.gstin }}</dd><dt>City</dt><dd>{{ i.city }}, {{ i.state }}</dd><dt>Status</dt><dd>{{ i.status === 'APPROVED' ? 'Approved' : S[i.status] }}</dd></dl>
+            <h3 class="h4">Team members</h3>
+            <ul class="team">@for (u of i.users; track u.email) { <li><b>{{ u.name }}</b><span>{{ u.role }} · {{ u.email }}</span></li> }</ul>
+          </div>
+          <form class="panel" (ngSubmit)="addMember()">
+            <h2 class="h3">Add a team member</h2>
+            <p class="small muted">They can request quotations and place orders for {{ i.name }}.</p>
+            <div class="field"><label for="mn">Name</label><input id="mn" type="text" name="mn" [(ngModel)]="member.name" /></div>
+            <div class="field"><label for="mr">Role</label><input id="mr" type="text" name="mr" [(ngModel)]="member.role" placeholder="e.g. Lab assistant" /></div>
+            <div class="field"><label for="me">Email</label><input id="me" type="email" name="me" [(ngModel)]="member.email" /></div>
+            @if (memberErr) { <p class="err">{{ memberErr }}</p> }
+            <button class="btn btn-dark" type="submit">Add member</button>
+          </form>
+        </div>
+      }
+    }
+    @case ('profile') {
+      <div class="panel narrow"><dl class="kv"><dt>Name</dt><dd>{{ store.customer()?.name }}</dd><dt>Mobile</dt><dd>+91 {{ store.customer()?.phone }}</dd><dt>Email</dt><dd>{{ store.customer()?.email }}</dd><dt>Account type</dt><dd>{{ store.customer()?.kind === 'INSTITUTION' ? 'Institution buyer' : 'Individual' }}</dd></dl>
+        @if (store.customer()?.kind === 'RETAIL') { <p class="small">Buying for an institution? <a routerLink="/register">Register it</a> for contract prices and credit.</p> }</div>
+    }
+    @default {
+      @if (!store.myOrders().length) { <div class="panel empty-s">No orders yet. <a routerLink="/products">Start shopping</a>.</div> }
+      <div class="list">
+        @for (o of store.myOrders(); track o.id) {
+          <a class="row" [routerLink]="['/account/orders', o.id]">
+            <span><b>{{ o.number }}</b><small>{{ dt(o.createdAt) }} · {{ o.lines.length }} {{ o.lines.length === 1 ? 'item' : 'items' }} · {{ o.pay === 'CREDIT' ? 'PO ' + o.poNumber : o.paid ? 'Paid' : 'Not paid' }}</small></span>
+            <span class="num amt">{{ inr(o.total) }}</span>
+            <span class="badge" [attr.data-s]="o.status">{{ S[o.status] }}</span>
+            <span class="go"><cs-icon name="arrow" [size]="18" /></span>
+          </a>
+        }
+      </div>
+    }
+  }
+</div>

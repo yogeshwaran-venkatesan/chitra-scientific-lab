@@ -1,0 +1,27 @@
+.layout { display: grid; grid-template-columns: 1.35fr 1fr; gap: 28px; align-items: start; }
+.lines { width: 100%; border-collapse: collapse; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden; }
+.lines th, .lines td { padding: 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.lines th { font-size: .82rem; color: var(--muted); font-weight: 600; background: var(--glass); }
+.lines td a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.lines td a:hover { color: var(--petrol); text-decoration: underline; }
+.lines small { display: block; color: var(--muted); font-size: .78rem; margin-top: 2px; }
+.r { text-align: right !important; white-space: nowrap; }
+.q { width: 78px; min-height: 38px; padding: 6px 8px; text-align: center; }
+.sum { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; padding: 16px 12px 4px; }
+.sum b { font-size: 1.5rem; font-stretch: 110%; }
+.h3 { font-size: 1.25rem; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.consent { display: flex; gap: 10px; align-items: flex-start; font-size: .9rem; margin: 6px 0; cursor: pointer; }
+.consent input { width: 18px; height: 18px; margin-top: 3px; accent-color: var(--petrol); }
+.consent.invalid { color: var(--litmus); }
+.err { display: block; font-size: var(--step--1); color: var(--litmus); font-weight: 600; margin-bottom: 8px; }
+.send { width: 100%; margin-top: 14px; }
+.empty, .done { display: grid; gap: 6px; justify-items: start; }
+.empty cs-icon, .done cs-icon { color: var(--petrol); }
+.done { grid-template-columns: auto 1fr; gap: 20px; }
+.done h2 { font-size: 1.4rem; }
+.row { display: flex; gap: 10px; margin: 10px 0 14px; }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .lines thead { display: none; } .lines td { display: block; border: 0; padding: 4px 12px; } .lines tr { display: block; border-bottom: 1px solid var(--line); padding: 8px 0; } .r { text-align: left !important; } .done { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
+
+.buy-now { display: grid; gap: 6px; justify-items: start; margin-top: 16px; padding: 16px; }

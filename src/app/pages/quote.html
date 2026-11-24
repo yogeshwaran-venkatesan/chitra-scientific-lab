@@ -1,0 +1,89 @@
+<div class="wrap page-head">
+  <nav class="crumbs"><a routerLink="/">Home</a> / <span>Quote basket</span></nav>
+  <h1>{{ sent() ? 'Quotation request sent' : 'Your quote basket' }}</h1>
+</div>
+
+@if (sent(); as s) {
+  <div class="wrap">
+    <div class="panel done">
+      <cs-icon name="check" [size]="40" />
+      <div>
+        <h2>We have your request — reference {{ s.ref }}</h2>
+        <p>{{ s.lines }} item{{ s.lines === 1 ? '' : 's' }} received on {{ s.when }}. A formal quotation with prices, GST and delivery time will be emailed to <b>{{ s.email }}</b>.</p>
+        <p class="muted">Need it faster? Call {{ company.phones[1] }} or message us on WhatsApp with your reference number.</p>
+        <div class="row"><a class="btn btn-dark" routerLink="/products">Continue browsing</a>
+          @if (store.customer()) { <a class="btn btn-line" routerLink="/account/quotations">Track in my account</a> }</div>
+        <p class="demo-note">Demo: this request now appears in Admin → Quotations, where the sales team prices it and sends it back.</p>
+      </div>
+    </div>
+  </div>
+} @else if (!store.basketItems().length) {
+  <div class="wrap">
+    <div class="panel empty">
+      <cs-icon name="basket" [size]="44" />
+      <h2>Your basket is empty</h2>
+      <p>Add products from the catalogue, then send one request for a formal quotation. You can also ask for items that are not listed.</p>
+      <a class="btn btn-primary" routerLink="/products">Browse products</a>
+    </div>
+  </div>
+} @else {
+  <div class="wrap layout">
+    <section>
+      <table class="lines">
+        <thead><tr><th>Product</th><th class="r">Unit price</th><th>Qty</th><th class="r">Amount</th><th><span class="sr-only">Remove</span></th></tr></thead>
+        <tbody>
+          @for (l of store.basketItems(); track l.slug) {
+            <tr>
+              <td><a [routerLink]="['/product', l.slug]">{{ l.product.name }}</a><small>{{ l.product.brand }} · {{ l.product.sku }} · {{ l.product.pack }}</small></td>
+              <td class="r">{{ l.product.enquiryOnly ? 'On request' : inr(l.product.price) }}</td>
+              <td><input class="q" type="number" min="1" max="9999" [ngModel]="l.qty" (ngModelChange)="setQty(l.slug, $event)" [attr.aria-label]="'Quantity of ' + l.product.name" /></td>
+              <td class="r">{{ l.product.enquiryOnly ? '—' : inr(l.product.price * l.qty) }}</td>
+              <td><button class="btn btn-ghost btn-sm" type="button" (click)="store.remove(l.slug)" [attr.aria-label]="'Remove ' + l.product.name"><cs-icon name="trash" [size]="18" /></button></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <div class="sum">
+        <span>Estimate before GST{{ askCount() ? ' (excludes ' + askCount() + ' item' + (askCount() > 1 ? 's' : '') + ' priced on request)' : '' }}</span>
+        <b>{{ inr(estimate()) }}</b>
+      </div>
+      <p class="small muted">Final prices, contract discounts, GST and freight are confirmed in the quotation.</p>
+      @if (movable()) {
+        <div class="panel buy-now"><b>Want to buy now instead?</b><span class="muted small">{{ movable() }} item{{ movable() === 1 ? ' has' : 's have' }} a price and can be ordered and paid online straight away.</span>
+          <button class="btn btn-line btn-sm" type="button" (click)="moveToCart()">Move priced items to cart</button></div>
+      }
+    </section>
+
+    <form class="panel" (ngSubmit)="submit(f)" #f="ngForm" novalidate>
+      <h2 class="h3">Send for quotation</h2>
+      <div class="field"><label for="n">Your name</label><input id="n" type="text" name="name" [(ngModel)]="form.name" [class.invalid]="err('name')" autocomplete="name" />
+        @if (err('name'); as e) { <span class="err">{{ e }}</span> }</div>
+      <div class="field"><label for="o">Organisation</label><input id="o" type="text" name="org" [(ngModel)]="form.org" [class.invalid]="err('org')" autocomplete="organization" placeholder="e.g. Dept. of Chemistry, ABC College" />
+        @if (err('org'); as e) { <span class="err">{{ e }}</span> }</div>
+      <div class="two">
+        <div class="field"><label for="t">Type</label>
+          <select id="t" name="type" [(ngModel)]="form.type" [class.invalid]="err('type')">
+            <option value="">Choose…</option><option>College / university</option><option>School</option><option>Hospital / medical college</option><option>Research laboratory</option><option>Industry / QC lab</option><option>Government department</option><option>Individual</option>
+          </select>
+          @if (err('type'); as e) { <span class="err">{{ e }}</span> }</div>
+        <div class="field"><label for="d">Designation <span class="muted">(optional)</span></label><input id="d" type="text" name="designation" [(ngModel)]="form.designation" placeholder="e.g. Lab assistant, HOD" /></div>
+      </div>
+      <div class="two">
+        <div class="field"><label for="p">Mobile</label><input id="p" type="tel" name="phone" [(ngModel)]="form.phone" [class.invalid]="err('phone')" autocomplete="tel" inputmode="numeric" maxlength="14" />
+          @if (err('phone'); as e) { <span class="err">{{ e }}</span> }</div>
+        <div class="field"><label for="e">Email</label><input id="e" type="email" name="email" [(ngModel)]="form.email" [class.invalid]="err('email')" autocomplete="email" />
+          @if (err('email'); as e) { <span class="err">{{ e }}</span> }</div>
+      </div>
+      <div class="two">
+        <div class="field"><label for="g">GSTIN <span class="muted">(optional)</span></label><input id="g" type="text" name="gstin" [(ngModel)]="form.gstin" [class.invalid]="err('gstin')" maxlength="15" />
+          @if (err('gstin'); as e) { <span class="err">{{ e }}</span> }</div>
+        <div class="field"><label for="c">City</label><input id="c" type="text" name="city" [(ngModel)]="form.city" autocomplete="address-level2" /></div>
+      </div>
+      <div class="field"><label for="nb">Needed by <span class="muted">(optional)</span></label><input id="nb" type="text" name="needBy" [(ngModel)]="form.needBy" placeholder="e.g. before 15 January, for practical exams" /></div>
+      <div class="field"><label for="m">Anything else? <span class="muted">(optional)</span></label><textarea id="m" name="note" [(ngModel)]="form.note" maxlength="1000" placeholder="Sizes, brands you prefer, items not in the catalogue, installation needs…"></textarea></div>
+      <label class="consent" [class.invalid]="err('consent')"><input type="checkbox" name="consent" [(ngModel)]="form.consent" /> I agree that Chitra Scientific may contact me by phone, email or WhatsApp about this quotation.</label>
+      @if (err('consent'); as e) { <span class="err">{{ e }}</span> }
+      <button class="btn btn-primary send" type="submit">Send quotation request</button>
+    </form>
+  </div>
+}

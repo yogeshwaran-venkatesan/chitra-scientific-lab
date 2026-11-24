@@ -1,0 +1,60 @@
+<div class="wrap page-head"><nav class="crumbs"><a routerLink="/cart">Cart</a> / <span>Checkout</span></nav><h1>Checkout</h1></div>
+@if (!store.cartItems().length) {
+  <div class="wrap"><div class="panel empty"><h2>Nothing to check out</h2><p>Your cart is empty.</p><a class="btn btn-primary" routerLink="/products">Browse products</a></div></div>
+} @else {
+  <form class="wrap layout" (ngSubmit)="place()" novalidate>
+    <section class="steps">
+      <div class="panel">
+        <h2 class="h3">Delivery address</h2>
+        <div class="two">
+          <div class="field"><label for="an">Receiver's name</label><input id="an" type="text" name="an" [(ngModel)]="a.name" [class.invalid]="e('name')" autocomplete="name" />@if (e('name'); as m) { <span class="err">{{ m }}</span> }</div>
+          <div class="field"><label for="ap">Mobile</label><input id="ap" type="tel" name="ap" [(ngModel)]="a.phone" maxlength="14" [class.invalid]="e('phone')" autocomplete="tel" />@if (e('phone'); as m) { <span class="err">{{ m }}</span> }</div>
+        </div>
+        <div class="field"><label for="a1">Building, street</label><input id="a1" type="text" name="a1" [(ngModel)]="a.line1" [class.invalid]="e('line1')" autocomplete="address-line1" />@if (e('line1'); as m) { <span class="err">{{ m }}</span> }</div>
+        <div class="field"><label for="a2">Area, landmark <span class="muted">(optional)</span></label><input id="a2" type="text" name="a2" [(ngModel)]="a.line2" autocomplete="address-line2" /></div>
+        <div class="three">
+          <div class="field"><label for="ac">City</label><input id="ac" type="text" name="ac" [(ngModel)]="a.city" [class.invalid]="e('city')" autocomplete="address-level2" />@if (e('city'); as m) { <span class="err">{{ m }}</span> }</div>
+          <div class="field"><label for="as">State</label><select id="as" name="as" [(ngModel)]="a.state" (ngModelChange)="addrState.set($event)">@for (s of states; track s) { <option>{{ s }}</option> }</select></div>
+          <div class="field"><label for="az">PIN code</label><input id="az" type="text" name="az" [(ngModel)]="a.pin" inputmode="numeric" maxlength="6" [class.invalid]="e('pin')" autocomplete="postal-code" />@if (e('pin'); as m) { <span class="err">{{ m }}</span> }</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2 class="h3">Payment</h2>
+        <label class="opt" [class.on]="pay() === 'ONLINE'"><input type="radio" name="pay" value="ONLINE" [checked]="pay() === 'ONLINE'" (change)="pay.set('ONLINE')" />
+          <span><b>Pay online now</b><small>UPI, cards, net banking. Order is confirmed as soon as payment succeeds.</small></span></label>
+        @if (canCredit()) {
+          <label class="opt" [class.on]="pay() === 'CREDIT'"><input type="radio" name="pay" value="CREDIT" [checked]="pay() === 'CREDIT'" (change)="pay.set('CREDIT')" />
+            <span><b>Credit — {{ store.institution()!.creditDays }} days against purchase order</b><small>For {{ store.institution()!.name }}. Upload your PO; pay by bank transfer within {{ store.institution()!.creditDays }} days of invoice.</small></span></label>
+          @if (pay() === 'CREDIT') {
+            <div class="po">
+              <div class="field"><label for="pon">PO number</label><input id="pon" type="text" name="pon" [(ngModel)]="po.number" maxlength="40" /></div>
+              <div class="field"><label for="pof">PO document <span class="muted">(PDF or image, up to 5 MB)</span></label><input id="pof" type="file" accept=".pdf,image/*" (change)="poFile($event)" />
+                @if (po.file) { <span class="hint">Attached: {{ po.file }}</span> }</div>
+              @if (e('po'); as m) { <span class="err">{{ m }}</span> }
+            </div>
+          }
+          <label class="opt" [class.on]="pay() === 'BANK'"><input type="radio" name="pay" value="BANK" [checked]="pay() === 'BANK'" (change)="pay.set('BANK')" />
+            <span><b>Bank transfer / cheque before dispatch</b><small>We send a proforma invoice with bank details.</small></span></label>
+        } @else if (store.institution()) {
+          <p class="small muted">PO and credit buying open once {{ store.institution()!.name }} is approved.</p>
+        }
+      </div>
+    </section>
+
+    <aside class="panel sum">
+      <h2 class="h3">Order summary</h2>
+      <ul class="mini">@for (l of store.cartItems(); track l.slug) { <li><span>{{ l.qty }} × {{ l.product.name }}</span><span>{{ inr(l.unit * l.qty) }}</span></li> }</ul>
+      <dl>
+        <dt>Items</dt><dd>{{ inr(t().subtotal) }}</dd>
+        @if (t().discount) { <dt>Coupon {{ coupon }}</dt><dd class="good">− {{ inr(t().discount) }}</dd> }
+        <dt>Delivery</dt><dd>{{ t().shipping ? inr(t().shipping) : 'Free' }}</dd>
+        @if (t().igst) { <dt>IGST</dt><dd>{{ inr(t().igst) }}</dd> } @else { <dt>CGST</dt><dd>{{ inr(t().cgst) }}</dd><dt>SGST</dt><dd>{{ inr(t().sgst) }}</dd> }
+        <dt class="tot">Total</dt><dd class="tot">{{ inr(t().total) }}</dd>
+      </dl>
+      <p class="small muted">{{ t().igst ? 'Delivery outside Tamil Nadu: IGST applies.' : 'Delivery within Tamil Nadu: CGST + SGST apply.' }}</p>
+      <button class="btn btn-primary full" type="submit" [disabled]="placing()">{{ pay() === 'ONLINE' ? 'Continue to payment' : 'Place order' }}</button>
+      <p class="small muted">By placing the order you agree to the terms of sale and return policy.</p>
+    </aside>
+  </form>
+}

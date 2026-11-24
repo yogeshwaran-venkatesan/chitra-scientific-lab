@@ -1,0 +1,63 @@
+<header class="ph"><div><h1>Orders</h1><p class="muted">Confirm, pack and ship. Customers see every status change in their account.</p></div></header>
+<div class="filters-row">
+  <div class="seg" role="tablist" aria-label="Filter orders">
+    @for (f of [['open','Open'],['credit','Credit due'],['done','Completed'],['all','All']]; track f[0]) {
+      <button type="button" role="tab" [class.on]="filter() === f[0]" [attr.aria-selected]="filter() === f[0]" (click)="filter.set($any(f[0]))">{{ f[1] }}</button>
+    }
+  </div>
+  <input type="search" [ngModel]="q()" (ngModelChange)="q.set($event)" placeholder="Order no. or customer" aria-label="Search orders" />
+</div>
+<div class="split">
+  <div class="card list-card">
+    @for (o of list(); track o.id) {
+      <button type="button" class="li" [class.on]="cur()?.id === o.id" (click)="sel.set(o.id); err = ''">
+        <span><b>{{ o.number }}</b><small>{{ o.institutionName ?? o.customerName }} · {{ dt(o.createdAt) }}</small></span>
+        <span class="li-r"><span class="num">{{ inr(o.total) }}</span><span class="badge" [attr.data-s]="o.status">{{ S[o.status] }}</span></span>
+      </button>
+    } @empty { <p class="muted pad">No orders here.</p> }
+  </div>
+  @if (cur(); as o) {
+    <div class="card">
+      <div class="row-between">
+        <div><h2 class="h3">{{ o.number }}</h2><p class="small muted">{{ o.institutionName ? o.institutionName + ' · ' : '' }}{{ o.customerName }} · {{ dtt(o.createdAt) }}{{ o.fromQuote ? ' · from ' + o.fromQuote : '' }}</p></div>
+        <span class="badge" [attr.data-s]="o.status">{{ S[o.status] }}</span>
+      </div>
+      <table class="t">
+        <thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead>
+        <tbody>@for (l of o.lines; track l.slug) { <tr><td>{{ l.name }}<small>{{ l.sku }}</small></td><td class="r">{{ l.qty }}</td><td class="r">{{ inr(l.unit) }}</td><td class="r">{{ inr(l.unit * l.qty) }}</td></tr> }</tbody>
+      </table>
+      <div class="kv2">
+        <div><span>Total</span><b class="num">{{ inr(o.total) }}</b></div>
+        <div><span>Payment</span><b>{{ o.pay === 'ONLINE' ? 'Online' : o.pay === 'CREDIT' ? 'Credit · PO ' + o.poNumber : 'Bank transfer' }}</b><small>{{ o.paid ? 'Paid ' + (o.paymentRef ?? '') : o.dueDate ? 'Due ' + dt(o.dueDate) : 'Not paid' }}</small></div>
+        <div><span>Deliver to</span><b>{{ o.address.city }}, {{ o.address.state }}</b><small>{{ o.address.name }} · {{ o.address.phone }}</small></div>
+        @if (o.poFile) { <div><span>PO document</span><b>{{ o.poFile }}</b></div> }
+      </div>
+      @if (o.returnRequest) { <p class="note">Return requested: {{ o.returnRequest }}</p> }
+
+      <div class="actions-box">
+        @if (next(o); as n) {
+          @if (can('orders.status')) {
+            @if (n === 'SHIPPED') {
+              <div class="tools">
+                <label>Courier <select class="cell-sel" [(ngModel)]="courier"><option>DTDC Courier</option><option>Professional Couriers</option><option>India Post</option><option>Own vehicle</option></select></label>
+                <label>Tracking no. <input class="cell w" type="text" [(ngModel)]="tracking" maxlength="30" /></label>
+              </div>
+            }
+            <button class="btn btn-primary" type="button" (click)="advance(o)">Mark as {{ S[n].toLowerCase() }}</button>
+          } @else { <p class="small muted">Store &amp; dispatch moves orders forward.</p> }
+        }
+        @if (!o.paid && o.status !== 'CANCELLED' && o.status !== 'PAYMENT_PENDING') {
+          @if (can('orders.payment')) {
+            <div class="tools"><label>Bank / UTR ref <input class="cell w" type="text" [(ngModel)]="payRef" maxlength="30" /></label>
+              <button class="btn btn-line btn-sm" type="button" (click)="paid(o)">Record payment</button></div>
+          }
+        }
+        @if (err) { <p class="err small">{{ err }}</p> }
+        @if (o.invoiceNo) { <a class="btn btn-ghost btn-sm" [routerLink]="['/invoice', o.id]"><cs-icon name="download" [size]="16" /> Invoice {{ o.invoiceNo }}</a> }
+      </div>
+
+      <h3 class="h4">Timeline</h3>
+      <ul class="audit">@for (h of o.history.slice().reverse(); track $index) { <li><span class="when">{{ dtt(h.at) }}</span><b>{{ S[h.status] }}</b> · {{ h.by }}@if (h.note) { — <span class="muted">{{ h.note }}</span> }</li> }</ul>
+    </div>
+  } @else { <div class="card empty">Choose an order on the left.</div> }
+</div>
