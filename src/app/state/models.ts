@@ -54,7 +54,12 @@ export interface AuditEntry { at: string; who: string; role: Role | 'CUSTOMER' |
 
 export interface Staff { id: string; name: string; role: Role; email: string; active: boolean }
 
-export interface ProductOverride { price?: number; stock?: 'in' | 'low' | 'order'; enquiryOnly?: boolean; hidden?: boolean }
+/** admin edits on top of the catalogue; `deleted` removes a product from the website and admin (orders keep their own copy of the line) */
+export interface ProductOverride {
+  price?: number; stock?: 'in' | 'low' | 'order'; enquiryOnly?: boolean; hidden?: boolean; deleted?: boolean;
+  name?: string; brand?: string; sku?: string; category?: string; categoryName?: string; group?: string; icon?: string;
+  gstPct?: number; hsn?: string; pack?: string; description?: string; specs?: Array<[string, string]>; images?: string[];
+}
 
 export interface Content { banner: string; bannerOn: boolean; announcement: string }
 
@@ -68,6 +73,8 @@ export interface DB {
   audit: AuditEntry[];
   staff: Staff[];
   overrides: Record<string, ProductOverride>;
+  /** products created in the admin panel */
+  added?: import('../data/catalog').Product[];
   content: Content;
   seq: { order: number; invoice: number; quote: number };
 }
@@ -95,6 +102,8 @@ export const PERMISSIONS: Record<string, Role[]> = {
   products: ['OWNER', 'SALES', 'STORE'],
   'products.price': ['OWNER', 'SALES'],
   'products.stock': ['OWNER', 'STORE'],
+  'products.edit': ['OWNER', 'SALES'],
+  'products.delete': ['OWNER'],
   institutions: ['OWNER', 'SALES'],
   customers: ['OWNER', 'SALES', 'ACCOUNTS'],
   coupons: ['OWNER', 'SALES'],
@@ -146,6 +155,7 @@ export function seed(): DB {
       { id: 's4', name: 'Lakshmi', role: 'ACCOUNTS', email: 'accounts@chitrascientific.in', active: true },
     ],
     overrides: {},
+    added: [],
     content: { banner: 'Practical exam season: order glassware before 15 February for on-time delivery.', bannerOn: true, announcement: '' },
     seq: { order: 1040, invoice: 386, quote: 212 },
   };

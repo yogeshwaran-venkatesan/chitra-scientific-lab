@@ -89,3 +89,46 @@ textarea { margin: 8px 0; }
   .shell { grid-template-columns: 1fr; } .side { position: static; height: auto; } .side nav { grid-template-columns: 1fr 1fr; } .me { margin-top: 0; }
   .main { padding: 20px 16px 40px; } .inst-grid { grid-template-columns: 1fr; } .hb { grid-template-columns: 100px 1fr 80px; }
 }
+
+/* products: add / edit drawer, delete confirm */
+.ph-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.nowrap { white-space: nowrap; }
+.btn-ghost.danger { color: var(--magenta); }
+.btn-danger { background: var(--magenta); color: #fff; border-color: var(--magenta); } .btn-danger:hover { background: #962029; color: #fff; }
+.del-row td { background: #fdf3f4; }
+.acts-inline { display: inline-flex; gap: 8px; }
+tr.is-hidden td { opacity: .62; }
+.hid { color: var(--maroon); font-weight: 600; }
+.linkish { background: none; border: 0; color: var(--teal); text-decoration: underline; cursor: pointer; font: inherit; }
+.scrim { position: fixed; inset: 0; background: rgba(10, 14, 18, .38); z-index: 60; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); background: var(--porcelain); z-index: 61; box-shadow: -24px 0 48px -24px rgba(0,0,0,.35); animation: din .25s var(--ease) both; }
+@keyframes din { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.drawer form { height: 100%; display: grid; grid-template-rows: auto 1fr auto; }
+.dh { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--line); background: #fff; }
+.dh h2 { margin: 0; }
+.dbody { overflow-y: auto; padding: 8px 24px 24px; }
+.df { padding: 14px 24px; border-top: 1px solid var(--line); background: #fff; }
+.df .err { color: var(--magenta); font-weight: 600; margin: 0 0 10px; font-size: .9rem; }
+.sec { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 22px 0 10px; font-weight: 600; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } .three { display: grid; grid-template-columns: 1.3fr .7fr 1fr; gap: 12px; }
+@media (max-width: 520px) { .two, .three { grid-template-columns: 1fr; } }
+.x { background: none; border: 0; width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; color: var(--muted); }
+.x:hover { background: #eef0ec; color: var(--ink); }
+.specs-ed { display: grid; gap: 8px; justify-items: start; }
+.spec-row { display: grid; grid-template-columns: 1fr 1.4fr 36px; gap: 8px; width: 100%; }
+
+.ph-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ph-item { position: relative; margin: 0; aspect-ratio: 1; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: #fff; }
+.ph-item.main { outline: 2px solid var(--teal); outline-offset: -2px; }
+.ph-item img { width: 100%; height: 100%; object-fit: contain; }
+.ph-tag { position: absolute; top: 6px; left: 6px; background: var(--teal); color: #fff; font-size: .7rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.photo-acts { position: absolute; left: 6px; right: 6px; bottom: 6px; display: flex; justify-content: flex-end; gap: 6px; }
+.photo-acts button { background: rgba(255,255,255,.94); border: 1px solid var(--line-2); border-radius: 8px; font: inherit; font-size: .74rem; font-weight: 600; padding: 4px 8px; cursor: pointer; display: inline-flex; align-items: center; }
+.photo-acts button:last-child { color: var(--magenta); }
+.ph-add { aspect-ratio: 1; border: 1.5px dashed var(--line-2); border-radius: 10px; display: grid; place-content: center; justify-items: center; gap: 6px; color: var(--muted); font-size: .85rem; font-weight: 600; cursor: pointer; background: #fff; position: relative; }
+.ph-add:hover, .ph-add:focus-within { border-color: var(--ink); color: var(--ink); }
+.ph-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.ph-add.busy { opacity: .6; cursor: progress; }
+.pcell { display: flex; gap: 10px; align-items: center; }
+.thumb { width: 38px; height: 38px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); flex: none; background: #fff; }
+.thumb.ic { display: grid; place-items: center; color: #6b7a72; background: #f4f5f2; }

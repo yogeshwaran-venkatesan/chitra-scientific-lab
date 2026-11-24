@@ -33,6 +33,8 @@ export interface Product {
   pack: string;
   description: string;
   specs: Array<[string, string]>;
+  /** product photos (first = main). Admin uploads are stored as compressed WebP data URLs in the prototype. */
+  images?: string[];
 }
 
 /** small deterministic hash → [0, 1) */

@@ -14,7 +14,7 @@ export const STOCK_LABEL = { in: 'In stock', low: 'Few left', order: 'Ships in 7
     @let p = product();
     <article class="card">
       <a class="visual" [routerLink]="['/product', p.slug]" [attr.aria-label]="p.name" tabindex="-1">
-        <cs-icon [name]="p.icon" [size]="64" [weight]="1.4" />
+        @if (p.images?.length) { <img class="photo" [src]="p.images![0]" [alt]="p.name" loading="lazy" /> } @else { <cs-icon [name]="p.icon" [size]="64" [weight]="1.4" /> }
         <span class="brand-chip">{{ p.brand }}</span>
         @if (p.stock === 'low') { <span class="flag">Few left</span> }
       </a>
@@ -41,6 +41,7 @@ export const STOCK_LABEL = { in: 'In stock', low: 'Few left', order: 'Ships in 7
       </div>
     </article>`,
   styles: [`
+    .visual .photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; padding: 12px; background: #fff; }
     .card { position: relative; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-m); display: flex; flex-direction: column; height: 100%; overflow: hidden; transition: border-color .2s, box-shadow .2s; }
     .card:hover { border-color: var(--line-2); box-shadow: var(--shadow-2); }
     .visual { position: relative; display: grid; place-items: center; aspect-ratio: 4 / 3; color: #3f6f55; background: #f4f5f2; border-bottom: 1px solid var(--line); }

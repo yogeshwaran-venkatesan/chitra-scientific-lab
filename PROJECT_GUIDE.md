@@ -24,15 +24,14 @@ hairline-ruled grids, verifiable facts only (ISO 13485, Udyam MSME, GeM, brands,
 an open price list on the home page, light header/footer. `ui/hero-art.ts` and `ui/tint.ts` are v2 leftovers (unused on the home page).
 
 ## Home hero carousel (`ui/hero-carousel.ts`)
-Five slides, auto-advance every 6.5 s with a progress bar per slide; keeps playing on hover, after arrow clicks and with reduced motion (motion effects are then switched off); waits while the browser tab is hidden; only the Pause button or Esc stops it; Previous/Next
-and per-slide buttons; inactive slides are `inert`. Every slide is a full-bleed photo with the text over a neutral near-black left shade (rgba(10,14,18)) so photos keep their natural colours; brand green/maroon stay in the logo, top bar and buttons.
+Four slides, auto-advance every 6.5 s with a progress bar per slide; pauses on hover/focus/hidden tab; Pause/Play, Previous/Next
+and per-slide buttons; no autoplay with reduced motion; inactive slides are `inert`. Every slide is a full-bleed photo with the text over a neutral near-black left shade (rgba(10,14,18)) so photos keep their natural colours; brand green/maroon stay in the logo, top bar and buttons.
 Slide change: the new photo wipes in from the right and slowly zooms out, old text exits left, the headline rises word by word, then the paragraph un-blurs and the buttons rise. The progress lines are visually hidden (still read by screen readers); only small previous / pause / next buttons show at bottom right.
-1. `img/hero-lab.webp` (+ `-m` for phones) — scientist pipetting at a bench of burettes (Pexels, Mikhail Nilov 8851715); text on the RIGHT (`align: 'right'`); preloaded in `index.html` for a fast first paint. The client's older microscope photo was retired (only 1220 px).
-2. `img/hero-instruments.webp` — clinical lab with analysers (Pexels, Tima Miroshnichenko 9574327, mirrored so the machines sit on the right).
-3. `img/hero-chemicals.webp` — gloved hand with conical flask (Pexels, Dubart 6608503).
-4. `img/hero-glassware.webp` — conical flask and test-tube rack (Pexels, Mehul Patel 18692575); text on the RIGHT (`align: 'right'`) because the flask is on the left.
-5. `img/hero-hospital.webp` — gloved hands with blood sample tubes (Pexels, Gustavo Fring 4149031).
-Each Pexels photo is served at 2400 px (desktop) and 1100 px (`-m`, phones) via `srcset`; all are under the free Pexels licence. High-resolution replacements go in `../hero-photos/` (2-instruments.jpg, 3-glassware.jpg, 4-hospital.jpg). Confirm the licence of every stock photo before go-live.
+1. `img/hero-lab.webp` — the client's own photograph (retouched, natural teal tones).
+2. `img/hero-automation.webp` — automated liquid-handling instrument. Supplied at 500 px, upscaled — replace with a full-size original.
+3. `img/hero-glassware.webp` — gloved hand holding a beaker. Unsplash photo-1617155093730, 1600 px.
+4. `img/hero-tubes.webp` — sample tubes on a hospital analyser. Supplied at 500 px, upscaled — replace with a full-size original.
+High-resolution replacements go in `../hero-photos/` (2-instruments.jpg, 3-glassware.jpg, 4-hospital.jpg). Confirm the licence of every stock photo before go-live.
 
 ## Catalogue in the prototype
 Showcase only (client decision): the 10 categories that have a real photo (`CATEGORY_PHOTO` in `data/catalog.ts`), up to 8
@@ -92,8 +91,19 @@ real product data/photos, current certificates, GSTIN, hosting. See the quotatio
 - axe-core WCAG 2 A/AA audit: 0 violations on all 36 storefront, account and admin screens (admin sidebar contrast and badge colours fixed).
 - Count wording pluralised (1 item / 2 items, 1 invoice).
 
-## Node.js version
-Angular CLI 22 needs Node.js 22.22.3+ (or 24.15+). With an older Node, `npm start` refuses to run. Either update Node from nodejs.org (LTS installer), or run the already-built site with `npm run preview` (serves `dist/chitra-scientific/browser` on http://localhost:4200, works on any Node 18+). `dist/` must be rebuilt with `npm run build` after code changes. Vercel uses its own Node 22/24 and is not affected.
-
-## Repository
-GitHub: https://github.com/yogeshwaran-venkatesan/chitra-scientific-lab (branch `main`). `dist/` and `node_modules/` are not committed; Vercel runs `npm run build` itself. Commit each change together with the matching PROJECT_GUIDE.md update.
+## Admin — product management (added 24 Nov 2026)
+Admin → Products supports the full product lifecycle:
+- **Add product** (Owner, Sales): drawer form with name, category, brand (suggestions), SKU (auto-suggested, must be unique), pack, description,
+  price before GST (shows price with GST), GST % (0/5/12/18/28), HSN (4–8 digits, pre-filled from the category), stock, sold as (buy online / quote only),
+  **photos** and **specifications** (starter rows per department, e.g. glassware → Capacity, Material, Graduation, Accuracy class, Standard; up to 30 rows).
+- **Edit** any product, including catalogue products (stored as overrides); **Hide/Show** keeps it in admin but off the website;
+  **Delete** (Owner only) asks for confirmation, removes it from the website, carts and quote baskets; placed orders/quotations keep their copy.
+- **Photos**: up to 6 per product, JPG/PNG/WebP ≤ 10 MB. Each file is decoded with `createImageBitmap` (SVG and fake files are rejected),
+  resized to 1000 px and re-encoded as WebP (~40–60 KB). First photo = main; "Make main" reorders. Shown on product cards, a gallery with thumbnails on the
+  product page, and as thumbnails in the admin list. Prototype stores photos as data URLs in localStorage (~4.5 MB cap with a clear message);
+  the live system uploads them to server/object storage.
+- Store API: `allProducts` (incl. hidden), `products` (website), `adminSaveProduct(p, isNew)` (validates + strips HTML), `adminDeleteProduct(slug)`.
+  New permissions: `products.edit` (Owner, Sales), `products.delete` (Owner). Every add/edit/delete is in the audit log.
+- Category product counts on Home and Products are live (`store.categoryCount`).
+- Tests: `/tmp/crud.py` (add/validate/edit/hide/delete/roles/audit), `/tmp/img.py` (photo upload, rejection, gallery, persistence) — all pass;
+  flow2 15/15; axe 0 violations including the open drawer.

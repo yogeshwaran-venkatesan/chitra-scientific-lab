@@ -18,11 +18,24 @@ import { tint } from '../ui/tint';
       <nav class="crumbs"><a routerLink="/">Home</a> / <a routerLink="/products">Products</a> / <a [routerLink]="['/products', p.category]">{{ p.categoryName }}</a> / <span>{{ p.name }}</span></nav>
     </div>
     <div class="wrap detail">
+      @if (p.images?.length) {
+        <div class="gallery">
+          <figure class="main-ph"><img [src]="p.images![shown() < p.images!.length ? shown() : 0]" [alt]="p.name" /></figure>
+          @if (p.images!.length > 1) {
+            <div class="thumbs" role="group" aria-label="Product photos">
+              @for (u of p.images!; track $index; let i = $index) {
+                <button type="button" [class.on]="i === shown()" (click)="shown.set(i)" [attr.aria-label]="'Show photo ' + (i + 1)" [attr.aria-pressed]="i === shown()"><img [src]="u" alt="" /></button>
+              }
+            </div>
+          }
+        </div>
+      } @else {
       <div class="visual">
         <span class="scale-v"></span>
         <cs-icon [name]="p.icon" [size]="180" [weight]="1.1" />
         <span class="demo-note">Product photo from Chitra Scientific goes here</span>
       </div>
+      }
       <div class="info">
         <span class="meta">{{ p.brand }} · SKU {{ p.sku }}</span>
         <h1>{{ p.name }}</h1>
@@ -79,6 +92,13 @@ import { tint } from '../ui/tint';
     .detail { display: grid; grid-template-columns: 1fr 1.1fr; gap: 44px; align-items: start; }
     .visual { position: sticky; top: 110px; border-radius: var(--r-m); min-height: 440px; display: grid; place-items: center; color: #3f6f55; padding: 24px; background: #f4f5f2; border: 1px solid var(--line); }
     .visual .scale-v { display: none; }
+    .gallery { position: sticky; top: 110px; align-self: start; display: grid; gap: 10px; }
+    .main-ph { margin: 0; aspect-ratio: 1; border-radius: var(--r-m); border: 1px solid var(--line); background: #fff; display: grid; place-items: center; overflow: hidden; }
+    .main-ph img { width: 100%; height: 100%; object-fit: contain; padding: 18px; }
+    .thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .thumbs button { width: 68px; height: 68px; padding: 4px; border-radius: 10px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; }
+    .thumbs button.on { border-color: var(--ink); }
+    .thumbs img { width: 100%; height: 100%; object-fit: contain; }
     .visual .demo-note { position: absolute; bottom: 14px; left: 44px; right: 14px; }
     .meta { color: var(--muted); font-size: .88rem; }
     h1 { font-size: clamp(1.8rem, 3vw, 2.4rem); margin: 6px 0 10px; }
@@ -102,13 +122,16 @@ import { tint } from '../ui/tint';
     .assure cs-icon { color: var(--petrol); }
     .related { margin-top: 64px; }
     .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-    @media (max-width: 900px) { .detail { grid-template-columns: 1fr; } .visual { position: relative; top: 0; min-height: 280px; } .grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 900px) { .detail { grid-template-columns: 1fr; } .gallery { position: relative; top: 0; } .visual { position: relative; top: 0; min-height: 280px; } .grid { grid-template-columns: repeat(2, 1fr); } }
   `],
 })
 export class ProductPage {
   readonly store = inject(Store);
   readonly slug = input.required<string>();
   readonly p = computed(() => this.store.product(this.slug()));
+  /** which photo is shown large; back to the main photo when the product changes */
+  readonly shown = signal(0);
+  private readonly resetShown = effect(() => { this.slug(); untracked(() => this.shown.set(0)); });
   readonly related = computed(() => {
     const p = this.p();
     return p ? this.store.products().filter((x) => x.category === p.category && x.slug !== p.slug).slice(0, 4) : [];

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { CATEGORIES, PRODUCTS, searchProducts } from '../data/catalog';
+import { BRANDS, CATEGORIES, PRODUCTS, Product, searchProducts } from '../data/catalog';
 import { Coupon, Order, OrderStatus, PERMISSIONS, QuoteLine, ROLE_LABEL, Role } from '../state/models';
 import { Store } from '../state/store';
 import { Icon } from '../ui/icon';
@@ -270,12 +270,25 @@ export class AdminQuotes extends AdminPage {
 }
 
 // ════════════════════ Products ════════════════════
+type Draft = Product & { specs: Array<[string, string]> };
+/** starter specification rows for a new product, by department */
+const SPEC_STARTER: Record<string, string[]> = {
+  'Glassware & labware': ['Capacity', 'Material', 'Graduation', 'Accuracy class', 'Standard'],
+  Chemicals: ['Grade', 'Assay / purity', 'Formula', 'CAS number', 'Storage'],
+  'Teaching aids & furniture': ['Size', 'Material', 'Finish', 'Installation'],
+};
+const SPEC_DEFAULT = ['Model', 'Range / capacity', 'Accuracy', 'Power', 'Dimensions', 'Warranty'];
+
 @Component({
   selector: 'cs-admin-products', changeDetection: ChangeDetectionStrategy.OnPush, imports: [FormsModule, Icon, RouterLink],
+  host: { '(document:keydown.escape)': 'close()' },
   template: `
   @if (!can('products')) { ${NoAccess} } @else {
-  <header class="ph"><div><h1>Products</h1><p class="muted">{{ store.products().length }} live products · prices and stock update on the website instantly.</p></div>
-    @if (can('products.price')) { <button class="btn btn-line btn-sm" type="button" (click)="showImport.set(!showImport())"><cs-icon name="download" [size]="16" /> Import price list</button> }</header>
+  <header class="ph"><div><h1>Products</h1><p class="muted">{{ store.products().length }} on the website{{ hiddenCount() ? ' · ' + hiddenCount() + ' hidden' : '' }} · changes show on the website instantly.</p></div>
+    <div class="ph-acts">
+      @if (can('products.price')) { <button class="btn btn-line btn-sm" type="button" (click)="showImport.set(!showImport())"><cs-icon name="download" [size]="16" /> Import price list</button> }
+      @if (can('products.edit')) { <button class="btn btn-primary btn-sm" type="button" (click)="openNew()"><cs-icon name="plus" [size]="16" /> Add product</button> }
+    </div></header>
   @if (showImport()) {
     <div class="card">
       <h2 class="h3">Import from Excel / CSV</h2>
@@ -293,42 +306,204 @@ export class AdminQuotes extends AdminPage {
   </div>
   <div class="card flush">
     <table class="t">
-      <thead><tr><th>Product</th><th>Category</th><th class="r">Price ₹</th><th>Stock</th><th>Sold as</th><th></th></tr></thead>
+      <thead><tr><th>Product</th><th>Category</th><th class="r">Price ₹</th><th>Stock</th><th>Sold as</th><th class="r">Actions</th></tr></thead>
       <tbody>
         @for (p of list(); track p.slug) {
-          <tr>
-            <td><a [routerLink]="['/product', p.slug]" target="_blank">{{ p.name }}</a><small>{{ p.sku }} · {{ p.brand }}</small></td>
+          @if (confirmDel() === p.slug) {
+            <tr class="del-row"><td colspan="6">
+              <div class="row-between"><span><b>Delete {{ p.name }}?</b> It disappears from the website, carts and quote baskets. Orders and quotations already placed keep their copy.</span>
+                <span class="acts-inline"><button class="btn btn-line btn-sm" type="button" (click)="confirmDel.set(null)">Cancel</button><button class="btn btn-danger btn-sm" type="button" (click)="remove(p)"><cs-icon name="trash" [size]="15" /> Delete</button></span></div>
+            </td></tr>
+          } @else {
+          <tr [class.is-hidden]="store.isHidden(p.slug)">
+            <td class="pcell">@if (p.images?.length) { <img class="thumb" [src]="p.images![0]" alt="" /> } @else { <span class="thumb ic"><cs-icon [name]="p.icon" [size]="20" /></span> }<span><a [routerLink]="['/product', p.slug]" target="_blank">{{ p.name }}</a><small>{{ p.sku }} · {{ p.brand }}@if (store.isHidden(p.slug)) { · <b class="hid">Hidden</b> }</small></span></td>
             <td class="small">{{ p.categoryName }}</td>
             <td class="r"><input class="cell w" type="number" min="1" [ngModel]="p.price" (change)="price(p.slug, $event)" [disabled]="!can('products.price')" [attr.aria-label]="'Price of ' + p.name" /></td>
             <td><select class="cell-sel" [ngModel]="p.stock" (ngModelChange)="store.adminProduct(p.slug, { stock: $event })" [disabled]="!can('products.stock')" [attr.aria-label]="'Stock of ' + p.name"><option value="in">In stock</option><option value="low">Few left</option><option value="order">On order</option></select></td>
             <td><label class="sw"><input type="checkbox" [checked]="!p.enquiryOnly" (change)="store.adminProduct(p.slug, { enquiryOnly: !$any($event.target).checked })" [disabled]="!can('products.price')" /> {{ p.enquiryOnly ? 'Quote only' : 'Buy online' }}</label></td>
-            <td><button class="btn btn-ghost btn-sm" type="button" (click)="store.adminProduct(p.slug, { hidden: true })" [disabled]="!can('products.price')">Hide</button></td>
+            <td class="r nowrap">
+              @if (can('products.edit')) {
+                <button class="btn btn-ghost btn-sm" type="button" (click)="openEdit(p)" [attr.aria-label]="'Edit ' + p.name">Edit</button>
+                <button class="btn btn-ghost btn-sm" type="button" (click)="store.adminProduct(p.slug, { hidden: !store.isHidden(p.slug) })">{{ store.isHidden(p.slug) ? 'Show' : 'Hide' }}</button>
+              }
+              @if (can('products.delete')) { <button class="btn btn-ghost btn-sm danger" type="button" (click)="confirmDel.set(p.slug)" [attr.aria-label]="'Delete ' + p.name"><cs-icon name="trash" [size]="15" /></button> }
+            </td>
           </tr>
+          }
         }
+        @if (!list().length) { <tr><td colspan="6" class="muted">No products match. @if (can('products.edit')) { <button class="linkish" type="button" (click)="openNew()">Add a new product</button> }</td></tr> }
       </tbody>
     </table>
     @if (all().length > list().length) { <p class="small muted pad">Showing first {{ list().length }} of {{ all().length }} — refine the search.</p> }
   </div>
+
+  @if (draft(); as d) {
+    <div class="scrim" (click)="close()"></div>
+    <aside class="drawer" role="dialog" aria-modal="true" [attr.aria-label]="isNew() ? 'Add product' : 'Edit product'">
+      <form (ngSubmit)="save()" novalidate>
+        <header class="dh"><h2 class="h3">{{ isNew() ? 'Add a product' : 'Edit product' }}</h2><button type="button" class="x" (click)="close()" aria-label="Close"><cs-icon name="close" [size]="20" /></button></header>
+        <div class="dbody">
+          <h3 class="sec">Basic details</h3>
+          <div class="field"><label for="pn">Product name *</label><input id="pn" name="pn" [(ngModel)]="d.name" maxlength="120" required autofocus /></div>
+          <div class="two">
+            <div class="field"><label for="pc">Category *</label><select id="pc" name="pc" [ngModel]="d.category" (ngModelChange)="setCat(d, $event)"><option value="">Choose…</option>@for (c of cats; track c.slug) { <option [value]="c.slug">{{ c.name }}</option> }</select></div>
+            <div class="field"><label for="pb">Brand *</label><input id="pb" name="pb" [(ngModel)]="d.brand" maxlength="60" list="brands" /><datalist id="brands">@for (b of brands; track b) { <option [value]="b"></option> }</datalist></div>
+          </div>
+          <div class="two">
+            <div class="field"><label for="ps">SKU / item code *</label><input id="ps" name="ps" [(ngModel)]="d.sku" maxlength="40" /></div>
+            <div class="field"><label for="pk">Pack</label><input id="pk" name="pk" [(ngModel)]="d.pack" maxlength="60" placeholder="e.g. Pack of 10, 500 g bottle" /></div>
+          </div>
+          <div class="field"><label for="pd">Description</label><textarea id="pd" name="pd" rows="4" [(ngModel)]="d.description" maxlength="1200"></textarea><span class="hint">{{ d.description.length }}/1200</span></div>
+
+          <h3 class="sec">Photos</h3>
+          <p class="small muted">Up to 6 photos (JPG, PNG or WebP, max 10 MB each). The first one is the main photo on the website. Photos are resized and compressed automatically.</p>
+          <div class="ph-grid">
+            @for (u of d.images ?? []; track $index; let i = $index) {
+              <figure class="ph-item" [class.main]="i === 0">
+                <img [src]="u" [alt]="d.name + ' photo ' + (i + 1)" />
+                @if (i === 0) { <span class="ph-tag">Main</span> }
+                <div class="photo-acts">
+                  @if (i > 0) { <button type="button" (click)="makeMain(d, i)" [attr.aria-label]="'Make photo ' + (i + 1) + ' the main photo'">Make main</button> }
+                  <button type="button" (click)="removeImage(d, i)" [attr.aria-label]="'Remove photo ' + (i + 1)"><cs-icon name="trash" [size]="14" /></button>
+                </div>
+              </figure>
+            }
+            @if ((d.images?.length ?? 0) < 6) {
+              <label class="ph-add" [class.busy]="busy()">
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple (change)="addImages(d, $event)" [disabled]="busy()" />
+                <cs-icon name="plus" [size]="22" /><span>{{ busy() ? 'Processing…' : 'Add photos' }}</span>
+              </label>
+            }
+          </div>
+          @if (imgErr()) { <p class="err small" role="alert">{{ imgErr() }}</p> }
+
+          <h3 class="sec">Price, tax and stock</h3>
+          <div class="three">
+            <div class="field"><label for="pp">Price ₹ (before GST) *</label><input id="pp" name="pp" type="number" min="1" step="0.01" [(ngModel)]="d.price" [disabled]="!can('products.price')" /></div>
+            <div class="field"><label for="pg">GST %</label><select id="pg" name="pg" [(ngModel)]="d.gstPct">@for (g of gst; track g) { <option [ngValue]="g">{{ g }}%</option> }</select></div>
+            <div class="field"><label for="ph">HSN code *</label><input id="ph" name="ph" [(ngModel)]="d.hsn" maxlength="8" inputmode="numeric" /></div>
+          </div>
+          <p class="small muted">Price with GST: <b>{{ inr(withGst(d)) }}</b></p>
+          <div class="two">
+            <div class="field"><label for="pst">Stock</label><select id="pst" name="pst" [(ngModel)]="d.stock"><option value="in">In stock</option><option value="low">Few left</option><option value="order">On order</option></select></div>
+            <div class="field"><label for="pso">Sold as</label><select id="pso" name="pso" [(ngModel)]="d.enquiryOnly"><option [ngValue]="false">Buy online</option><option [ngValue]="true">Quote only (on request)</option></select></div>
+          </div>
+
+          <h3 class="sec">Specifications</h3>
+          <p class="small muted">Shown as a table on the product page. Leave a row empty to skip it.</p>
+          <div class="specs-ed">
+            @for (r of d.specs; track $index; let i = $index) {
+              <div class="spec-row">
+                <input [name]="'sk' + i" [(ngModel)]="r[0]" placeholder="Name, e.g. Capacity" maxlength="60" [attr.aria-label]="'Specification ' + (i + 1) + ' name'" />
+                <input [name]="'sv' + i" [(ngModel)]="r[1]" placeholder="Value, e.g. 50 ml" maxlength="160" [attr.aria-label]="'Specification ' + (i + 1) + ' value'" />
+                <button type="button" class="x" (click)="d.specs.splice(i, 1)" [attr.aria-label]="'Remove specification ' + (i + 1)"><cs-icon name="minus" [size]="16" /></button>
+              </div>
+            }
+            @if (d.specs.length < 30) { <button type="button" class="btn btn-line btn-sm" (click)="addSpec(d)"><cs-icon name="plus" [size]="15" /> Add specification</button> }
+          </div>
+        </div>
+        <footer class="df">
+          @if (err()) { <p class="err" role="alert">{{ err() }}</p> }
+          <div class="row-between"><button type="button" class="btn btn-line" (click)="close()">Cancel</button><button type="submit" class="btn btn-primary">{{ isNew() ? 'Add product' : 'Save changes' }}</button></div>
+        </footer>
+      </form>
+    </aside>
+  }
   }`,
   styleUrl: './admin.scss',
 })
 export class AdminProducts extends AdminPage {
   readonly qp = input<string>('', { alias: 'q' });
   readonly cats = CATEGORIES;
+  readonly brands = BRANDS;
+  readonly gst = [0, 5, 12, 18, 28];
   readonly q = signal('');
   readonly cat = signal('');
   readonly stock = signal('');
   readonly showImport = signal(false);
   readonly importMsg = signal('');
   readonly skipped = signal<string[]>([]);
+  readonly draft = signal<Draft | null>(null);
+  readonly isNew = signal(false);
+  readonly err = signal('');
+  readonly confirmDel = signal<string | null>(null);
+  readonly busy = signal(false);
+  readonly imgErr = signal('');
   readonly sample = `${PRODUCTS[5].sku},${PRODUCTS[5].price + 50},in`;
   csv = '';
   constructor() { super(); queueMicrotask(() => this.q.set(this.qp() ?? '')); }
   readonly all = computed(() => {
-    const base = this.q().trim() ? searchProducts(this.q(), 1000, this.store.products()) : this.store.products();
+    const src = this.store.allProducts();
+    const base = this.q().trim() ? searchProducts(this.q(), 1000, src) : src;
     return base.filter((p) => (!this.cat() || p.category === this.cat()) && (!this.stock() || p.stock === this.stock()));
   });
   readonly list = computed(() => this.all().slice(0, 60));
+  readonly hiddenCount = computed(() => this.store.allProducts().length - this.store.products().length);
+  withGst(d: Draft): number { return Math.round((Number(d.price) || 0) * (1 + (Number(d.gstPct) || 0) / 100) * 100) / 100; }
+  openNew(): void {
+    this.isNew.set(true); this.err.set('');
+    this.draft.set({ id: '', slug: '', name: '', category: '', categoryName: '', group: '', icon: 'flask', sku: '', brand: '', price: 0, gstPct: 18, hsn: '',
+      stock: 'in', enquiryOnly: false, pack: '', description: '', specs: [], images: [] } as Draft);
+    this.imgErr.set('');
+  }
+  openEdit(p: Product): void {
+    this.isNew.set(false); this.err.set('');
+    this.imgErr.set('');
+    this.draft.set({ ...p, specs: p.specs.map(([k, v]) => [k, v] as [string, string]), images: [...(p.images ?? [])] });
+  }
+  setCat(d: Draft, slug: string): void {
+    const c = CATEGORIES.find((x) => x.slug === slug);
+    d.category = slug; d.categoryName = c?.name ?? ''; d.group = c?.group ?? ''; d.icon = (c?.icon ?? 'flask') as Product['icon'];
+    if (!d.hsn) d.hsn = this.store.allProducts().find((x) => x.category === slug)?.hsn ?? '';
+    if (!d.sku && c) d.sku = `CSI-${slug.slice(0, 3).toUpperCase()}-${String(Date.now()).slice(-4)}`;
+    if (this.isNew() && !d.specs.some(([k, v]) => k || v)) d.specs = (SPEC_STARTER[d.group] ?? SPEC_DEFAULT).map((k) => [k, ''] as [string, string]);
+    this.draft.set({ ...d });
+  }
+  save(): void {
+    const d = this.draft(); if (!d) return;
+    const e = this.store.adminSaveProduct(d, this.isNew());
+    if (e) { this.err.set(e); return; }
+    this.store.say(this.isNew() ? 'Product added to the website' : 'Product updated on the website');
+    if (this.isNew()) { this.q.set(d.sku.trim().toUpperCase()); this.cat.set(''); this.stock.set(''); }
+    this.draft.set(null);
+  }
+  /** decode each file as a bitmap (rejects anything that is not a real image, incl. SVG), resize to 1000 px and re-encode */
+  async addImages(d: Draft, ev: Event): Promise<void> {
+    const input = ev.target as HTMLInputElement;
+    const files = [...(input.files ?? [])];
+    input.value = '';
+    this.imgErr.set('');
+    const room = 6 - (d.images?.length ?? 0);
+    if (files.length > room) this.imgErr.set(`Only ${room} more photo${room === 1 ? '' : 's'} can be added — the first ${room} were used.`);
+    this.busy.set(true);
+    const out: string[] = [];
+    for (const f of files.slice(0, room)) {
+      if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { this.imgErr.set(`${f.name}: use a JPG, PNG or WebP photo.`); continue; }
+      if (f.size > 10 * 1024 * 1024) { this.imgErr.set(`${f.name} is larger than 10 MB.`); continue; }
+      try {
+        const bmp = await createImageBitmap(f);
+        const k = Math.min(1, 1000 / Math.max(bmp.width, bmp.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+        const g = c.getContext('2d')!; g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+        bmp.close();
+        let url = c.toDataURL('image/webp', 0.8);
+        if (!url.startsWith('data:image/webp')) url = c.toDataURL('image/jpeg', 0.82);
+        out.push(url);
+      } catch { this.imgErr.set(`${f.name} could not be read as an image.`); }
+    }
+    d.images = [...(d.images ?? []), ...out];
+    this.busy.set(false);
+    this.draft.set({ ...d });
+  }
+  removeImage(d: Draft, i: number): void { d.images = (d.images ?? []).filter((_, j) => j !== i); this.draft.set({ ...d }); }
+  makeMain(d: Draft, i: number): void { const a = [...(d.images ?? [])]; const [x] = a.splice(i, 1); d.images = [x, ...a]; this.draft.set({ ...d }); }
+  addSpec(d: Draft): void {
+    d.specs.push(['', '']);
+    setTimeout(() => (document.querySelectorAll<HTMLInputElement>('.spec-row input:first-child')).item(d.specs.length - 1)?.focus());
+  }
+  close(): void { if (this.draft()) this.draft.set(null); else this.confirmDel.set(null); }
+  remove(p: Product): void { this.store.adminDeleteProduct(p.slug); this.confirmDel.set(null); this.store.say(`${p.name} deleted`); }
   price(slug: string, ev: Event): void {
     const v = Number((ev.target as HTMLInputElement).value);
     if (!Number.isFinite(v) || v <= 0 || v > 10_000_000) { this.store.say('Enter a price above ₹0'); return; }
@@ -550,7 +725,7 @@ export class AdminContent extends AdminPage {
 })
 export class AdminStaff extends AdminPage {
   readonly roles: Role[] = ['OWNER', 'SALES', 'STORE', 'ACCOUNTS'];
-  readonly perms: Array<[string, string]> = [['orders.status', 'Pack & ship orders'], ['orders.payment', 'Record payments'], ['quotations', 'Send quotations'], ['products.price', 'Change prices'], ['products.stock', 'Change stock'],
+  readonly perms: Array<[string, string]> = [['orders.status', 'Pack & ship orders'], ['orders.payment', 'Record payments'], ['quotations', 'Send quotations'], ['products.price', 'Change prices'], ['products.stock', 'Change stock'], ['products.edit', 'Add & edit products'], ['products.delete', 'Delete products'],
     ['institutions', 'Approve institutions & terms'], ['coupons', 'Coupons'], ['reports', 'Reports & GST'], ['content', 'Website content'], ['staff', 'Staff & roles'], ['audit', 'Audit log']];
   n = { name: '', email: '', role: 'SALES' as Role };
   err = '';

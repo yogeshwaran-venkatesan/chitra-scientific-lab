@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
-import { PRODUCTS, Product } from '../data/catalog';
+import { PRODUCTS, Product, slugify } from '../data/catalog';
 import {
   Address, AuditEntry, Coupon, Customer, DB, FREE_SHIPPING_FROM, Institution, Order, OrderLine, OrderStatus, PayMethod,
   QuoteLine, Quotation, Role, SELLER_STATE, SHIPPING_FEE, Staff, iso, seed,
@@ -38,10 +38,20 @@ export class Store {
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   // ── catalogue (with admin edits applied) ──
-  readonly products = computed<Product[]>(() => {
+  /** every product the admin can manage: catalogue + admin-created, edits applied, deleted ones removed (hidden ones kept) */
+  readonly allProducts = computed<Product[]>(() => {
     const o = this.db().overrides;
-    return PRODUCTS.filter((p) => !o[p.slug]?.hidden).map((p) => (o[p.slug] ? { ...p, ...o[p.slug] } as Product : p));
+    return [...PRODUCTS, ...(this.db().added ?? [])].filter((p) => !o[p.slug]?.deleted)
+      .map((p) => (o[p.slug] ? { ...p, ...o[p.slug] } as Product : p));
   });
+  /** what the website shows */
+  readonly products = computed<Product[]>(() => { const o = this.db().overrides; return this.allProducts().filter((p) => !o[p.slug]?.hidden); });
+  readonly categoryCount = computed(() => {
+    const m = new Map<string, number>();
+    for (const p of this.products()) m.set(p.category, (m.get(p.category) ?? 0) + 1);
+    return m;
+  });
+  isHidden(slug: string): boolean { return !!this.db().overrides[slug]?.hidden; }
   readonly bySlug = computed(() => new Map(this.products().map((p) => [p.slug, p])));
   product(slug: string): Product | undefined { return this.bySlug().get(slug); }
 
@@ -404,11 +414,70 @@ export class Store {
 
   adminProduct(slug: string, patch: { price?: number; stock?: 'in' | 'low' | 'order'; enquiryOnly?: boolean; hidden?: boolean }): void {
     const s = this.staff();
-    const p = PRODUCTS.find((x) => x.slug === slug);
+    const p = this.allProducts().find((x) => x.slug === slug);
     const prev = this.product(slug);
     this.mut((d) => { d.overrides[slug] = { ...d.overrides[slug], ...patch }; });
-    const parts = Object.entries(patch).map(([k, v]) => `${k} ${k === 'price' ? `₹${prev?.price} → ₹${v}` : `→ ${v}`}`);
+    const parts = Object.entries(patch).map(([k, v]) => k === 'hidden' ? (v ? 'hidden from website' : 'shown on website') : `${k} ${k === 'price' ? `₹${prev?.price} → ₹${v}` : `→ ${v}`}`);
     this.log(s?.role ?? 'SYSTEM', s?.name ?? 'Admin', `${p?.name}: ${parts.join(', ')}`);
+  }
+
+  /** create or edit a product with all its details. Returns an error message, or '' when saved. */
+  adminSaveProduct(p: Product, isNew: boolean): string {
+    const s = this.staff();
+    const all = this.allProducts();
+    const clean = (v: string, n: number) => String(v ?? '').replace(/<[^>]*>/g, '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, n);
+    const d: Product = {
+      ...p, name: clean(p.name, 120), brand: clean(p.brand, 60), sku: clean(p.sku, 40).toUpperCase(), hsn: clean(p.hsn, 8), pack: clean(p.pack, 60),
+      description: clean(p.description, 1200), price: Math.round(Number(p.price) * 100) / 100, gstPct: Number(p.gstPct),
+      specs: p.specs.map(([k, v]) => [clean(k, 60), clean(v, 160)] as [string, string]).filter(([k, v]) => k && v).slice(0, 30),
+      images: (p.images ?? []).filter((u) => /^data:image\/(webp|jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) || /^img\/[a-z0-9-]+\.(webp|jpg|png)$/.test(u)).slice(0, 6),
+    };
+    if (!d.images!.length) delete d.images;
+    const bytes = JSON.stringify({ ...this.db(), x: d.images ?? [] }).length;
+    if (bytes > 4_500_000) return 'Photo storage for this demo is full. Remove a few photos (the live system stores photos on the server, with no such limit).';
+    if (d.name.length < 3) return 'Enter the product name (at least 3 characters).';
+    if (!d.category) return 'Choose a category.';
+    if (!d.brand) return 'Enter the brand.';
+    if (!/^[A-Z0-9][A-Z0-9-]{2,39}$/.test(d.sku)) return 'SKU: 3–40 letters, numbers or dashes.';
+    if (all.some((x) => x.sku.toUpperCase() === d.sku && x.slug !== p.slug)) return `SKU ${d.sku} is already used by another product.`;
+    if (!Number.isFinite(d.price) || d.price <= 0 || d.price > 10_000_000) return 'Enter a price between ₹1 and ₹1,00,00,000.';
+    if (![0, 5, 12, 18, 28].includes(d.gstPct)) return 'GST must be 0, 5, 12, 18 or 28%.';
+    if (!/^\d{4,8}$/.test(d.hsn)) return 'HSN code has 4 to 8 digits.';
+    if (isNew) {
+      let slug = slugify(d.name) || 'product', n = 2;
+      while (all.some((x) => x.slug === slug) || PRODUCTS.some((x) => x.slug === slug)) slug = `${slugify(d.name)}-${n++}`;
+      d.slug = slug; d.id = `new-${Date.now()}`;
+      this.mut((db) => { db.added = [...(db.added ?? []), d]; });
+      this.log(s?.role ?? 'SYSTEM', s?.name ?? 'Admin', `Added product ${d.name} (${d.sku}) at ₹${d.price}`);
+      return '';
+    }
+    const before = all.find((x) => x.slug === p.slug);
+    if (!before) return 'This product no longer exists.';
+    const keys: Array<keyof Product> = ['name', 'brand', 'sku', 'category', 'categoryName', 'group', 'icon', 'price', 'gstPct', 'hsn', 'pack', 'stock', 'enquiryOnly', 'description', 'specs', 'images'];
+    const changed = keys.filter((k) => JSON.stringify(before[k]) !== JSON.stringify(d[k]));
+    if (!changed.length) return '';
+    this.mut((db) => {
+      const i = (db.added ?? []).findIndex((x) => x.slug === p.slug);
+      if (i >= 0) db.added![i] = { ...db.added![i], ...d };
+      else { const o: Record<string, unknown> = { ...db.overrides[p.slug] }; for (const k of changed) o[k] = d[k] ?? (k === 'images' ? [] : d[k]); db.overrides[p.slug] = o; }
+    });
+    const label: Record<string, string> = { categoryName: '', group: '', icon: '', enquiryOnly: 'sold as', gstPct: 'GST', images: 'photos' };
+    const what = changed.filter((k) => label[k] !== '').map((k) => k === 'price' ? `price ₹${before.price} → ₹${d.price}` : (label[k] ?? k)).join(', ');
+    this.log(s?.role ?? 'SYSTEM', s?.name ?? 'Admin', `Edited product ${d.name}: ${what}`);
+    return '';
+  }
+
+  adminDeleteProduct(slug: string): void {
+    const s = this.staff();
+    const p = this.allProducts().find((x) => x.slug === slug);
+    if (!p) return;
+    this.mut((db) => {
+      if ((db.added ?? []).some((x) => x.slug === slug)) db.added = db.added!.filter((x) => x.slug !== slug);
+      else db.overrides[slug] = { ...db.overrides[slug], deleted: true };
+    });
+    this.basket.update((b) => b.filter((l) => l.slug !== slug));
+    this.cart.update((c) => c.filter((l) => l.slug !== slug));
+    this.log(s?.role ?? 'SYSTEM', s?.name ?? 'Admin', `Deleted product ${p.name} (${p.sku})`);
   }
 
   adminCoupon(c: Coupon, isNew: boolean): void {
@@ -447,7 +516,7 @@ export class Store {
     for (const [i, row] of rows.entries()) {
       const [sku, priceS, stockS] = row.split(',').map((x) => x.trim());
       if (i === 0 && /sku/i.test(sku)) continue;
-      const p = PRODUCTS.find((x) => x.sku.toLowerCase() === (sku ?? '').toLowerCase());
+      const p = this.allProducts().find((x) => x.sku.toLowerCase() === (sku ?? '').toLowerCase());
       const price = Number(priceS);
       const stock = (stockS ?? '').toLowerCase();
       if (!p) { skipped.push(`Row ${i + 1}: SKU "${sku}" not found`); continue; }

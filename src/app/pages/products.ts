@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { Store } from '../state/store';
 import { RouterLink } from '@angular/router';
-import { CATEGORY_GROUPS, CATEGORY_PHOTO, PRODUCT_COUNT } from '../data/catalog';
+import { CATEGORY_GROUPS, CATEGORY_PHOTO } from '../data/catalog';
 
 @Component({
   selector: 'cs-products',
@@ -10,7 +11,7 @@ import { CATEGORY_GROUPS, CATEGORY_PHOTO, PRODUCT_COUNT } from '../data/catalog'
   <div class="wrap page-head">
     <nav class="crumbs"><a routerLink="/">Home</a> / <span>Products</span></nav>
     <h1>Products</h1>
-    <p class="muted">A selection of {{ count }} products across {{ catCount }} departments. Need something not listed? Add it as a note in your quote basket and we will source it.</p>
+    <p class="muted">A selection of {{ count() }} products across {{ catCount }} departments. Need something not listed? Add it as a note in your quote basket and we will source it.</p>
   </div>
   <div class="wrap">
     @for (g of groups; track g.name) {
@@ -22,7 +23,7 @@ import { CATEGORY_GROUPS, CATEGORY_PHOTO, PRODUCT_COUNT } from '../data/catalog'
               <span class="ph"><img [src]="photo[c.slug]" [alt]="c.name" loading="lazy" /></span>
               <b>{{ c.name }}</b>
               <span>{{ c.blurb }}</span>
-              <small>{{ c.count }} products</small>
+              <small>{{ store.categoryCount().get(c.slug) ?? 0 }} products</small>
             </a>
           }
         </div>
@@ -44,6 +45,7 @@ import { CATEGORY_GROUPS, CATEGORY_PHOTO, PRODUCT_COUNT } from '../data/catalog'
 export class Products {
   readonly groups = CATEGORY_GROUPS;
   readonly photo = CATEGORY_PHOTO;
-  readonly count = PRODUCT_COUNT;
+  readonly store = inject(Store);
+  readonly count = computed(() => this.store.products().length);
   readonly catCount = CATEGORY_GROUPS.reduce((s, g) => s + g.categories.length, 0);
 }

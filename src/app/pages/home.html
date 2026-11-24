@@ -19,7 +19,7 @@
       <a class="cat" [routerLink]="['/products', c.slug]">
         <span class="cat-img"><img [src]="c.photo" [alt]="c.name" loading="lazy" width="320" height="251" /></span>
         <span class="cat-name">{{ c.name }}</span>
-        <span class="cat-n">{{ c.count }} products</span>
+        <span class="cat-n">{{ store.categoryCount().get(c.slug) ?? 0 }} products</span>
       </a>
     }
   </div>
