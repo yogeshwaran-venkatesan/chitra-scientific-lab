@@ -29,7 +29,7 @@ const NAV: Array<[string, string, string]> = [
             <button type="button" (click)="store.loginStaff(s.id)"><span class="av">{{ s.name.replace('Dr. ', '').charAt(0) }}</span><span><b>{{ s.name }}</b><small>{{ roleLabel[s.role] }}</small></span><cs-icon name="arrow" [size]="18" /></button>
           }
         </div>
-        <p class="small muted">Live system: email + password + OTP, sessions expire, every action is logged.</p>
+        <p class="small muted">Live system: staff email + password (owner can add an authenticator-app code), sessions expire after 8 hours, every action is logged.</p>
         <a routerLink="/" class="small">← Back to the website</a>
       </div>
     </div>

@@ -34,7 +34,7 @@ Owner legend: **[Client]** = Chitra Scientific provides / does it · **[Dev]** =
 | 3 | Logo (high-res), company details, GSTIN, bank details, certificates | Client | 1 week | ☐ |
 | 4 | Domain access (chitrascientific.in) | Client | 1 day | ☐ |
 | 5 | Razorpay account + KYC | Client (Dev guides) | 1–2 weeks | ☐ |
-| 6 | DLT registration + SMS provider (MSG91) | Client (Dev guides) | 1–2 weeks | ☐ |
+| 6 | ~~SMS / DLT~~ — not needed: customers sign in with email + password (decided 24 Nov 2026) | — | — | n/a |
 | 7 | WhatsApp Business API (Meta verification + templates) | Client (Dev guides) | 1–3 weeks | ☐ |
 | 8 | Cloud hosting: server, PostgreSQL, storage, backups | Dev (client's account) | 1 day | ☐ |
 | 9 | Transactional email (orders, enquiries) | Dev | 1 day | ☐ |
@@ -44,7 +44,7 @@ Owner legend: **[Client]** = Chitra Scientific provides / does it · **[Dev]** =
 | 13 | Release C — B2B + admin live | Dev | Weeks 14–20 | ☐ |
 | 14 | Training, handover, sign-off, final payment | Both | Week 20 | ☐ |
 
-**Start items 2, 5, 6 and 7 immediately** — they depend on the client and take the longest.
+**Start items 2, 5 and 7 immediately** — they depend on the client and take the longest.
 
 ---
 
@@ -95,7 +95,7 @@ If the client cannot provide this, offer the **data entry service** (₹100 per 
 
 ### 2.5 Access — [Client]
 - Domain registrar login (or add DNS records we send).
-- A mobile number + email for each service account (Razorpay, Meta, hosting) — owned by the company.
+- A company email (and phone) for each service account (Razorpay, Meta, hosting) — owned by the company.
 
 ---
 
@@ -109,9 +109,8 @@ If the client cannot provide this, offer the **data entry service** (₹100 per 
 | Database | PostgreSQL 16 | Managed PostgreSQL (DigitalOcean / AWS RDS / Neon) | Client |
 | File storage | Product photos, PO uploads, invoices | S3-compatible (AWS S3 / DigitalOcean Spaces / Cloudflare R2) | Client |
 | Payments | UPI, cards, net banking | Razorpay | Client (per transaction) |
-| SMS / OTP | Login OTP, order SMS | MSG91 (DLT registered) | Client (per SMS) |
 | WhatsApp | Order updates | WhatsApp Business API via a BSP (e.g. MSG91, Gupshup, Interakt) or Meta Cloud API | Client (per conversation) |
-| Email | Order / enquiry emails | Amazon SES / Brevo / Zoho ZeptoMail | Client |
+| Email | Account confirmation, password reset, order / enquiry emails (**required** — sign-in depends on it) | Amazon SES / Brevo / Zoho ZeptoMail | Client |
 | Error monitoring | Crash alerts | Sentry (free tier) | Client |
 | Uptime monitoring | Site-down alerts | UptimeRobot / Better Stack (free tier) | Client |
 | Analytics | Traffic, conversions | Google Analytics 4 + Search Console | Free |
@@ -202,16 +201,38 @@ api/                      NestJS API (new)
    - Refunds from the admin panel through the Refunds API.
 6. Before go-live: switch to **live keys**, make one small real payment, refund it.
 
-### 5.4 SMS / OTP — DLT + MSG91 — [Client registers, Dev configures]
-1. Client registers the company as **Principal Entity** on one DLT portal (Jio, Airtel, Vi or BSNL). Needs PAN, GST certificate, authorised-person letter. Approval a few days; a one-time fee applies.
-2. Register a **sender ID (header)**, e.g. `CHTRSC` (6 letters), transactional/service-implicit.
-3. Register **content templates** (variables written as `{#var#}`), for example:
-   - `{#var#} is your Chitra Scientific login code. Valid for 5 minutes. Do not share it.`
-   - `Your order {#var#} of Rs {#var#} is confirmed. Track: {#var#} - Chitra Scientific`
-   - `Your order {#var#} has been shipped via {#var#}, tracking no {#var#}. - Chitra Scientific`
-4. Create an MSG91 account (company name); link the DLT entity ID, sender ID and template IDs; buy SMS credits.
-5. Put `MSG91_AUTH_KEY`, `MSG91_SENDER_ID`, template IDs in `.env`.
-6. OTP rules in the API: 6 digits, 5-minute expiry, stored hashed, max 5 attempts, resend after 30 s, max ~5 OTPs per number per hour and per IP, captcha after repeated failures.
+### 5.4 Customer sign-in — email + password (no SMS) — [Dev]
+Decision (24 Nov 2026): customers and institutions sign in with **email + password**. No DLT registration, no SMS provider,
+no per-OTP cost. The mobile number is collected only as a delivery/contact number. Order updates go by email and WhatsApp.
+
+**Sign-up**
+1. Name, email, mobile (contact only), password + confirm. Institution sign-up adds the organisation fields and document.
+2. Password rules (same as the prototype's `passwordProblem()`): 8–128 characters, at least one letter and one number,
+   refuse common passwords and passwords containing the email name.
+3. Store **Argon2id** hash only (`argon2` npm package; memory ≥ 19 MB, iterations ≥ 2). Never log or email passwords.
+4. Send an **email confirmation link** (random 32-byte token, stored hashed, valid 24 h, single use). Unconfirmed accounts can browse
+   and use the quote basket, but must confirm before the first paid order.
+
+**Sign-in and sessions**
+1. Email + password → server sets an **HttpOnly, Secure, SameSite=Lax session cookie** (or a short-lived JWT + refresh token in an HttpOnly cookie).
+2. "Keep me signed in" (default on): session lasts 30 days on that device, so closing the tab does **not** log the customer out.
+   Unticked: session ends when the browser closes. Staff sessions: 8 hours.
+3. Same error for wrong email or wrong password ("Email or password is not right") — do not reveal which emails exist.
+4. Rate limits: 5 wrong attempts per account → 15-minute lock; per-IP limit on `/auth/login`; captcha (Cloudflare Turnstile / hCaptcha)
+   after 3 failures and on sign-up.
+5. Every sign-in, password change and reset is written to the audit log.
+
+**Forgot / reset password**
+1. "Forgot password?" → email → always show the same message ("If an account exists…").
+2. Email a reset link: random token, stored hashed, valid **30 minutes**, single use.
+3. New password follows the same rules; on success, sign out all other sessions and send a "your password was changed" email.
+
+**Change password (My account → Profile)**: current password + new + confirm; other sessions signed out; notification email.
+
+**Staff (admin)**: email + password, 8-hour sessions; optional second step for the Owner with an authenticator app (TOTP, e.g. Google Authenticator).
+No SMS needed here either.
+
+**Later options (no SMS cost)**: "Sign in with Google", or a WhatsApp one-time code through the WhatsApp Business API — can be added without changing the design.
 
 ### 5.5 WhatsApp Business API — [Client verifies, Dev configures]
 1. Use a **new or dedicated number** (a number on the WhatsApp app must be removed from the app first).
@@ -245,12 +266,13 @@ api/                      NestJS API (new)
 - All prices, discounts, GST and totals recalculated on the server; never trust the browser.
 - Every order/invoice/quotation query filtered by the signed-in customer or institution (no IDOR).
 - Staff permissions checked on the API for every action (the prototype's role matrix, enforced server-side).
-- Rate limits on login, OTP, enquiry and checkout; captcha on public forms.
+- Passwords hashed with Argon2id; reset/confirm tokens hashed, single-use, short expiry; HttpOnly secure session cookies.
+- Rate limits and lockout on login, password reset, enquiry and checkout; captcha on sign-up and after failed logins.
 - Validated uploads (type, size, re-encoding); no SVG/HTML uploads.
 - Parameterised queries via the ORM; input validation with DTOs.
 - Secrets only in env variables / secret manager, never in Git.
 - Audit log for prices, stock, orders, institutions, staff changes.
-- Staff accounts: email + password + OTP, session timeout, disable on exit.
+- Staff accounts: email + password (+ authenticator app for the Owner), 8-hour session timeout, disable on exit.
 
 ---
 
@@ -281,12 +303,14 @@ RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 RAZORPAY_WEBHOOK_SECRET=
 
-# SMS (MSG91, DLT)
-MSG91_AUTH_KEY=
-MSG91_SENDER_ID=CHTRSC
-MSG91_TEMPLATE_OTP=
-MSG91_TEMPLATE_ORDER_CONFIRMED=
-MSG91_TEMPLATE_ORDER_SHIPPED=
+# Customer auth (email + password)
+SESSION_SECRET=                 # long random string
+SESSION_DAYS_REMEMBER=30
+AUTH_MAX_FAILS=5
+AUTH_LOCK_MINUTES=15
+RESET_TOKEN_MINUTES=30
+CAPTCHA_SITE_KEY=
+CAPTCHA_SECRET=
 
 # WhatsApp Business API
 WHATSAPP_PROVIDER=msg91        # or meta
@@ -338,13 +362,13 @@ WHATSAPP_NUMBER=919751513734
 - [ ] Domain, HTTPS, analytics, Search Console; remove `noindex`
 
 ### Release B — Online store (weeks 6–13) · payment 3 (20%) at demo, payment 4 (15%) at go-live
-- [ ] Customers: OTP login (MSG91) + email login, addresses, profile
+- [ ] Customers: email + password sign-up, email confirmation link, sign-in with "keep me signed in", forgot/reset password, change password, addresses, profile
 - [ ] Cart and checkout with server-side pricing, coupons, bulk discounts, shipping charges
 - [ ] Razorpay: create order, verify signature, webhook, failure handling, refunds
 - [ ] GST: CGST+SGST inside Tamil Nadu, IGST outside; per-item HSN and rate; buyer GSTIN
 - [ ] Invoice PDF with sequential numbers per financial year; stored in private storage
 - [ ] Order lifecycle: placed → confirmed → packed → shipped (courier + tracking no.) → delivered; cancel/return requests
-- [ ] Notifications: email + SMS + WhatsApp templates; new-order alert to staff
+- [ ] Notifications: email + WhatsApp templates (no SMS); new-order alert to staff
 - [ ] Customer area: orders, invoices, re-order
 - [ ] Test-site demo → fixes → go-live with live Razorpay keys
 
@@ -367,7 +391,7 @@ WHATSAPP_NUMBER=919751513734
 | API | Every endpoint, permissions per role | Jest + Supertest |
 | End-to-end | Browse → cart → pay → invoice; quote → PO → order; every staff role | Playwright (the prototype tests in `PROJECT_GUIDE.md` are the starting point) |
 | Payments | Success, failure, cancel, webhook replay, refund | Razorpay test mode |
-| Security | Price tampering, other customers' orders (IDOR), role bypass, SQL injection, XSS, OTP brute force, fake sign-ups, card testing, upload attacks | Playwright scripts + OWASP ZAP baseline scan |
+| Security | Price tampering, other customers' orders (IDOR), role bypass, SQL injection, XSS, password brute force / credential stuffing, reset-token reuse, account enumeration, fake sign-ups, card testing, upload attacks | Playwright scripts + OWASP ZAP baseline scan |
 | Accessibility | WCAG 2 A/AA, 0 violations | axe-core |
 | Performance | Home/product pages fast on mobile | Lighthouse |
 | Devices | Android Chrome, iPhone Safari, desktop Chrome/Edge | Manual |
@@ -378,7 +402,8 @@ WHATSAPP_NUMBER=919751513734
 ## 9. Go-live checklist (each release)
 
 - [ ] Client approved the test site in writing
-- [ ] Live keys set (Razorpay, SMS, WhatsApp, email); test keys removed
+- [ ] Live keys set (Razorpay, WhatsApp, email, captcha); test keys removed
+- [ ] Password reset and confirmation emails arrive in Gmail/Outlook inbox (not spam)
 - [ ] `noindex` removed; sitemap submitted
 - [ ] HTTPS, redirects (http → https, root ↔ www) working
 - [ ] Backups on and one restore tested
@@ -412,7 +437,7 @@ WHATSAPP_NUMBER=919751513734
 | Domain renewal | ~₹1,000 / year |
 | Hosting: server, database, storage, backups, email | ₹3,000 – ₹8,000 / month depending on traffic |
 | Razorpay | ~2% + 18% GST per online payment; no setup or yearly fee (standard plan, Nov 2026) |
-| SMS OTP / alerts | ~₹0.15 – ₹0.25 per SMS + GST; DLT one-time registration fee |
+| SMS | **Not needed** — sign-in is email + password (saves DLT fee and per-SMS cost) |
 | WhatsApp Business API | Per conversation, billed by Meta / the BSP |
 | Vercel Pro (if used) | ~$20 / month |
 | Sentry, uptime monitor | Free tiers are enough to start |

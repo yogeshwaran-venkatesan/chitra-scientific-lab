@@ -67,6 +67,14 @@
     @case ('profile') {
       <div class="panel narrow"><dl class="kv"><dt>Name</dt><dd>{{ store.customer()?.name }}</dd><dt>Mobile</dt><dd>+91 {{ store.customer()?.phone }}</dd><dt>Email</dt><dd>{{ store.customer()?.email }}</dd><dt>Account type</dt><dd>{{ store.customer()?.kind === 'INSTITUTION' ? 'Institution buyer' : 'Individual' }}</dd></dl>
         @if (store.customer()?.kind === 'RETAIL') { <p class="small">Buying for an institution? <a routerLink="/register">Register it</a> for contract prices and credit.</p> }</div>
+      <form class="panel narrow pwform" (ngSubmit)="changePw()" novalidate>
+        <h2 class="h3">Change password</h2>
+        <div class="field"><label for="cp0">Current password</label><input id="cp0" type="password" name="cp0" [(ngModel)]="pw.cur" autocomplete="current-password" maxlength="128" /></div>
+        <div class="field"><label for="cp1">New password</label><input id="cp1" type="password" name="cp1" [(ngModel)]="pw.next" autocomplete="new-password" maxlength="128" /><span class="hint">At least 8 characters, with a letter and a number.</span></div>
+        <div class="field"><label for="cp2">Confirm new password</label><input id="cp2" type="password" name="cp2" [(ngModel)]="pw.next2" autocomplete="new-password" maxlength="128" /></div>
+        @if (pwMsg()) { <p [class.err]="!pwOk()" [class.ok-msg]="pwOk()" role="status">{{ pwMsg() }}</p> }
+        <button class="btn btn-dark" type="submit">Update password</button>
+      </form>
     }
     @default {
       @if (!store.myOrders().length) { <div class="panel empty-s">No orders yet. <a routerLink="/products">Start shopping</a>.</div> }

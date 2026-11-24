@@ -2,7 +2,7 @@ import { Injectable, computed, effect, signal } from '@angular/core';
 import { PRODUCTS, Product, slugify } from '../data/catalog';
 import {
   Address, AuditEntry, Coupon, Customer, DB, FREE_SHIPPING_FROM, Institution, Order, OrderLine, OrderStatus, PayMethod,
-  QuoteLine, Quotation, Role, SELLER_STATE, SHIPPING_FEE, Staff, iso, seed,
+  DEMO_PW, QuoteLine, Quotation, Role, SELLER_STATE, SHIPPING_FEE, Staff, iso, seed,
 } from './models';
 
 export interface Line { slug: string; qty: number }
@@ -10,6 +10,23 @@ export interface Totals { subtotal: number; discount: number; shipping: number; 
 
 const KEY = 'cs.db.v3';
 const r2 = (n: number) => Math.round(n * 100) / 100;
+
+/** prototype-only password hash (SHA-256 of "cs:<email>:<password>"); the live API uses Argon2id on the server */
+export async function pwHash(email: string, password: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`cs:${email.trim().toLowerCase()}:${password}`));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** password rules shared by sign-up, reset and change-password */
+const COMMON_PW = ['password', 'password1', 'password123', '12345678', '123456789', '1234567890', 'qwerty123', 'iloveyou', 'admin123', 'welcome1', 'chitra123', 'abcd1234'];
+export function passwordProblem(pw: string, email = ''): string | null {
+  if (pw.length < 8) return 'Use at least 8 characters.';
+  if (pw.length > 128) return 'Use 128 characters or fewer.';
+  if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) return 'Use at least one letter and one number.';
+  if (COMMON_PW.includes(pw.toLowerCase())) return 'This password is too common — choose another.';
+  if (email && pw.toLowerCase().includes(email.split('@')[0].toLowerCase()) && email.split('@')[0].length > 3) return 'Do not use your email name in the password.';
+  return null;
+}
 
 function load<T>(key: string, fallback: T): T {
   try {
@@ -87,7 +104,11 @@ export class Store {
 
   private initialDb(): DB {
     const d = load<DB | null>(KEY, null);
-    if (d && d.v === 3 && Array.isArray(d.orders)) return d;
+    if (d && d.v === 3 && Array.isArray(d.orders)) {
+      // older demo data had no passwords: give the demo customers theirs
+      for (const c of d.customers) if (!c.pw && DEMO_PW[c.email]) c.pw = DEMO_PW[c.email];
+      return d;
+    }
     return this.seedWithOrders();
   }
 
@@ -178,20 +199,35 @@ export class Store {
   }
   logoutStaff(): void { this.staffId.set(null); }
   findCustomerByPhone(phone: string): Customer | undefined { return this.db().customers.find((c) => c.phone === phone); }
+  findCustomerByEmail(email: string): Customer | undefined { const e = email.trim().toLowerCase(); return this.db().customers.find((c) => c.email.toLowerCase() === e); }
 
-  registerRetail(name: string, phone: string, email: string): Customer {
-    const c: Customer = { id: `c-${Date.now()}`, name, phone, email, kind: 'RETAIL', addresses: [] };
+  /** prototype password check. Live: POST /auth/login, Argon2id verify on the server, rate-limited. */
+  async checkPassword(email: string, password: string): Promise<Customer | null> {
+    const c = this.findCustomerByEmail(email);
+    const h = await pwHash(email, password);
+    return c && c.pw && c.pw === h ? c : null;
+  }
+  async setPassword(id: string, password: string): Promise<void> {
+    const c = this.db().customers.find((x) => x.id === id);
+    if (!c) return;
+    const h = await pwHash(c.email, password);
+    this.mut((d) => { d.customers.find((x) => x.id === id)!.pw = h; });
+    this.log('CUSTOMER', c.name, 'Changed password');
+  }
+
+  registerRetail(name: string, phone: string, email: string, pw?: string): Customer {
+    const c: Customer = { id: `c-${Date.now()}`, name, phone, email, pw, kind: 'RETAIL', addresses: [] };
     this.mut((d) => d.customers.push(c));
     this.log('CUSTOMER', name, 'Created a customer account');
     return c;
   }
 
-  registerInstitution(f: { org: string; dept: string; gstin: string; city: string; state: string; type: string; name: string; role: string; phone: string; email: string }): Customer {
+  registerInstitution(f: { org: string; dept: string; gstin: string; city: string; state: string; type: string; name: string; role: string; phone: string; email: string; pw?: string }): Customer {
     const inst: Institution = {
       id: `i-${Date.now()}`, name: f.org, dept: f.dept, gstin: f.gstin.toUpperCase(), city: f.city, state: f.state, type: f.type, status: 'PENDING', contractPct: 0, creditDays: 0,
       users: [{ name: f.name, role: f.role, email: f.email }], createdAt: new Date().toISOString(),
     };
-    const c: Customer = { id: `c-${Date.now()}`, name: f.name, phone: f.phone, email: f.email, kind: 'INSTITUTION', institutionId: inst.id, addresses: [] };
+    const c: Customer = { id: `c-${Date.now()}`, name: f.name, phone: f.phone, email: f.email, pw: f.pw, kind: 'INSTITUTION', institutionId: inst.id, addresses: [] };
     this.mut((d) => { d.institutions.push(inst); d.customers.push(c); });
     this.log('CUSTOMER', f.name, `Registered institution ${f.org} — waiting for approval`);
     return c;

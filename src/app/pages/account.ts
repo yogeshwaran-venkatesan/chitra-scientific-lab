@@ -5,7 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { COMPANY } from '../data/company';
 import { Order, PayMethod, SELLER_GSTIN } from '../state/models';
-import { Store } from '../state/store';
+import { Store, passwordProblem } from '../state/store';
 import { Icon } from '../ui/icon';
 import { EMAIL, STATUS_LABEL, dt, dtt, inr, rupeesInWords } from '../ui/format';
 
@@ -28,6 +28,21 @@ export class Account {
   ]);
   readonly creditDue = computed(() => this.store.myOrders().filter((o) => o.pay === 'CREDIT' && !o.paid && o.status !== 'CANCELLED').reduce((s, o) => s + o.total, 0));
   member = { name: '', role: '', email: '' };
+  pw = { cur: '', next: '', next2: '' };
+  readonly pwMsg = signal('');
+  readonly pwOk = signal(false);
+  async changePw(): Promise<void> {
+    const c = this.store.customer(); if (!c) return;
+    this.pwOk.set(false);
+    if (!(await this.store.checkPassword(c.email, this.pw.cur))) return this.pwMsg.set('Current password is not right.');
+    const bad = passwordProblem(this.pw.next, c.email);
+    if (bad) return this.pwMsg.set(bad);
+    if (this.pw.next !== this.pw.next2) return this.pwMsg.set('The two new passwords do not match.');
+    if (this.pw.next === this.pw.cur) return this.pwMsg.set('Choose a password different from the current one.');
+    await this.store.setPassword(c.id, this.pw.next);
+    this.pw = { cur: '', next: '', next2: '' };
+    this.pwOk.set(true); this.pwMsg.set('Password updated. (Live site: other signed-in devices are signed out and you get an email.)');
+  }
   memberErr = '';
 
   addMember(): void {
@@ -131,7 +146,7 @@ export class OrderDetail {
           <dl class="qsum"><dt>Sub-total</dt><dd>{{ inr(sub()) }}</dd><dt>Freight</dt><dd>{{ q.freight ? inr(q.freight) : 'Included' }}</dd><dt>GST</dt><dd>{{ inr(gst()) }}</dd><dt class="tot">Total</dt><dd class="tot">{{ inr(sub() + q.freight + gst()) }}</dd></dl>
           <p class="small">{{ words() }}</p>
           @if (q.terms) { <p class="small"><b>Terms:</b> {{ q.terms }}</p> }
-        } @else { <p class="panel warn">Our sales team is preparing prices for this request. You'll get an email and SMS when the quotation is ready.</p> }
+        } @else { <p class="panel warn">Our sales team is preparing prices for this request. You'll get an email and a WhatsApp message when the quotation is ready.</p> }
         @if (q.note) { <p class="small muted"><b>Your note:</b> {{ q.note }}</p> }
       </article>
       <aside class="panel side no-print">

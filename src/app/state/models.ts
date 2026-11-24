@@ -21,6 +21,8 @@ export interface Institution {
 
 export interface Customer {
   id: string; name: string; phone: string; email: string;
+  /** prototype only: SHA-256 of "cs:<email>:<password>". The live API stores an Argon2id hash on the server. */
+  pw?: string;
   kind: 'RETAIL' | 'INSTITUTION';
   institutionId?: string;
   addresses: Address[];
@@ -113,6 +115,14 @@ export const PERMISSIONS: Record<string, Role[]> = {
   audit: ['OWNER'],
 };
 
+/** demo customers all use the password Demo@1234 (hashes precomputed) */
+export const DEMO_PASSWORD = 'Demo@1234';
+export const DEMO_PW: Record<string, string> = {
+  'chemistry@slasc.example.in': 'f9e03bc89771f2fc19c6b2c7c0d18d5c6daa4d4cb69948e3a3643fd1741a7283',
+  'priya@example.com': '7c6f963d4cedbfe448052645b62dde39880f8d22d1ba2c036e2ac58614fd1c6a',
+  'purchase@vhospital.example.in': 'a34967d0a2f2268aa3bd60ba11a1f03f37eb08c5415ba38442b435adfb4a53c4',
+};
+
 const iso = (daysAgo: number, h = 11) => {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
@@ -128,9 +138,9 @@ export function seed(): DB {
   const db: DB = {
     v: 3,
     customers: [
-      { id: 'c-college', name: 'Dr. R. Meena', phone: '9840012345', email: 'chemistry@slasc.example.in', kind: 'INSTITUTION', institutionId: 'i-slasc', addresses: [ADDR_COLLEGE] },
-      { id: 'c-priya', name: 'Priya Raman', phone: '9876543210', email: 'priya@example.com', kind: 'RETAIL', addresses: [ADDR_PRIYA] },
-      { id: 'c-hosp', name: 'K. Arun', phone: '9445098765', email: 'purchase@vhospital.example.in', kind: 'INSTITUTION', institutionId: 'i-vh', addresses: [] },
+      { id: 'c-college', name: 'Dr. R. Meena', phone: '9840012345', email: 'chemistry@slasc.example.in', pw: DEMO_PW['chemistry@slasc.example.in'], kind: 'INSTITUTION', institutionId: 'i-slasc', addresses: [ADDR_COLLEGE] },
+      { id: 'c-priya', name: 'Priya Raman', phone: '9876543210', email: 'priya@example.com', pw: DEMO_PW['priya@example.com'], kind: 'RETAIL', addresses: [ADDR_PRIYA] },
+      { id: 'c-hosp', name: 'K. Arun', phone: '9445098765', email: 'purchase@vhospital.example.in', pw: DEMO_PW['purchase@vhospital.example.in'], kind: 'INSTITUTION', institutionId: 'i-vh', addresses: [] },
     ],
     institutions: [
       { id: 'i-slasc', name: 'Sri Lakshmi Arts & Science College', dept: 'Department of Chemistry', gstin: '33AAATS1234F1Z9', city: 'Chennai', state: 'Tamil Nadu', type: 'College / university', status: 'APPROVED', contractPct: 12, creditDays: 30,

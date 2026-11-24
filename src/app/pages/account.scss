@@ -74,3 +74,5 @@
   .doc { padding: 18px; } .doc-head { flex-direction: column; } .doc-title { text-align: left; }
 }
 @media print { .doc { border: 0; box-shadow: none; padding: 0; } .grid2 { grid-template-columns: 1fr; } }
+
+.pwform { margin-top: 16px; } .pwform .h3 { margin-top: 0; } .ok-msg { color: var(--ok); font-weight: 600; } .pwform .err { color: var(--litmus); font-weight: 600; }

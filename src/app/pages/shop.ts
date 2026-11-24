@@ -1,85 +1,180 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { FREE_SHIPPING_FROM, Order, PayMethod, STATES } from '../state/models';
-import { Store } from '../state/store';
+import { DEMO_PASSWORD, FREE_SHIPPING_FROM, Order, PayMethod, STATES } from '../state/models';
+import { Store, passwordProblem, pwHash } from '../state/store';
 import { Icon } from '../ui/icon';
 import { EMAIL, GSTIN, PHONE, PIN, cleanPhone, inr } from '../ui/format';
 
-// ════════════════════ Sign in (mobile OTP, demo) ════════════════════
+// ════════════════════ Sign in (email + password) ════════════════════
+type LoginStep = 'login' | 'register' | 'forgot' | 'sent' | 'reset';
 @Component({
   selector: 'cs-login', changeDetection: ChangeDetectionStrategy.OnPush, imports: [FormsModule, RouterLink, Icon],
   template: `
   <div class="wrap narrow">
-    <div class="page-head"><h1>Sign in</h1><p class="muted">Use your mobile number. We send a one-time code by SMS.</p></div>
+    <div class="page-head"><h1>{{ heading[step()] }}</h1><p class="muted">{{ sub[step()] }}</p></div>
     <div class="cols">
-      <form class="panel" (ngSubmit)="step() === 'phone' ? sendOtp() : verify()" novalidate>
-        @if (step() === 'phone') {
-          <div class="field"><label for="ph">Mobile number</label><input id="ph" type="tel" name="ph" [(ngModel)]="phone" inputmode="numeric" maxlength="14" autocomplete="tel" placeholder="10-digit mobile" />
-            @if (err()) { <span class="err">{{ err() }}</span> }</div>
-          <button class="btn btn-primary full" type="submit">Send code</button>
-        } @else if (step() === 'otp') {
-          <p>Code sent to <b>+91 {{ phone }}</b>. <button class="link" type="button" (click)="step.set('phone')">Change</button></p>
-          <p class="demo-note">Demo: the code is <b>123456</b>.</p>
-          <div class="field"><label for="otp">6-digit code</label><input id="otp" type="text" name="otp" [(ngModel)]="otp" inputmode="numeric" maxlength="6" autocomplete="one-time-code" />
-            @if (err()) { <span class="err">{{ err() }}</span> }</div>
-          <button class="btn btn-primary full" type="submit">Verify and sign in</button>
-        } @else {
-          <p>No account for <b>+91 {{ phone }}</b> yet. Tell us who you are:</p>
-          <div class="field"><label for="nm">Your name</label><input id="nm" type="text" name="nm" [(ngModel)]="name" autocomplete="name" /></div>
-          <div class="field"><label for="em">Email</label><input id="em" type="email" name="em" [(ngModel)]="email" autocomplete="email" /></div>
-          @if (err()) { <span class="err">{{ err() }}</span> }
-          <button class="btn btn-primary full" type="submit">Create account</button>
-          <p class="small muted">Buying for a college, hospital or company? <a routerLink="/register">Register your institution</a> for contract prices and credit.</p>
+      @switch (step()) {
+        @case ('login') {
+          <form class="panel" (ngSubmit)="login()" novalidate>
+            <div class="field"><label for="le">Email</label><input id="le" type="email" name="le" [(ngModel)]="email" autocomplete="username" /></div>
+            <div class="field"><label for="lp">Password</label>
+              <span class="pw"><input id="lp" [type]="show() ? 'text' : 'password'" name="lp" [(ngModel)]="password" autocomplete="current-password" maxlength="128" />
+                <button type="button" class="eye" (click)="show.set(!show())" [attr.aria-label]="show() ? 'Hide password' : 'Show password'">{{ show() ? 'Hide' : 'Show' }}</button></span></div>
+            <div class="row-between"><label class="chk"><input type="checkbox" name="rm" [(ngModel)]="remember" /> Keep me signed in</label>
+              <button class="link" type="button" (click)="go2('forgot')">Forgot password?</button></div>
+            @if (err()) { <p class="err" role="alert">{{ err() }}</p> }
+            <button class="btn btn-primary full" type="submit" [disabled]="busy()">Sign in</button>
+            <p class="small center">New here? <button class="link" type="button" (click)="go2('register')">Create an account</button></p>
+          </form>
         }
-      </form>
+        @case ('register') {
+          <form class="panel" (ngSubmit)="register()" novalidate>
+            <div class="field"><label for="rn">Your name</label><input id="rn" type="text" name="rn" [(ngModel)]="name" autocomplete="name" maxlength="80" /></div>
+            <div class="field"><label for="re">Email</label><input id="re" type="email" name="re" [(ngModel)]="email" autocomplete="email" /></div>
+            <div class="field"><label for="rp">Mobile <span class="muted">(for delivery, not for sign-in)</span></label><input id="rp" type="tel" name="rp" [(ngModel)]="phone" inputmode="numeric" maxlength="14" autocomplete="tel" /></div>
+            <div class="field"><label for="rw">Password</label>
+              <span class="pw"><input id="rw" [type]="show() ? 'text' : 'password'" name="rw" [(ngModel)]="password" autocomplete="new-password" maxlength="128" />
+                <button type="button" class="eye" (click)="show.set(!show())" [attr.aria-label]="show() ? 'Hide password' : 'Show password'">{{ show() ? 'Hide' : 'Show' }}</button></span>
+              <span class="hint">At least 8 characters, with a letter and a number.</span></div>
+            <div class="field"><label for="rw2">Confirm password</label><input id="rw2" [type]="show() ? 'text' : 'password'" name="rw2" [(ngModel)]="password2" autocomplete="new-password" maxlength="128" /></div>
+            @if (err()) { <p class="err" role="alert">{{ err() }}</p> }
+            <button class="btn btn-primary full" type="submit" [disabled]="busy()">Create account</button>
+            <p class="small center">Already registered? <button class="link" type="button" (click)="go2('login')">Sign in</button></p>
+            <p class="small muted">Buying for a college, hospital or company? <a routerLink="/register">Register your institution</a> for contract prices and credit.</p>
+          </form>
+        }
+        @case ('forgot') {
+          <form class="panel" (ngSubmit)="forgot()" novalidate>
+            <div class="field"><label for="fe">Email</label><input id="fe" type="email" name="fe" [(ngModel)]="email" autocomplete="email" /></div>
+            @if (err()) { <p class="err" role="alert">{{ err() }}</p> }
+            <button class="btn btn-primary full" type="submit">Send reset link</button>
+            <p class="small center"><button class="link" type="button" (click)="go2('login')">Back to sign in</button></p>
+          </form>
+        }
+        @case ('sent') {
+          <div class="panel">
+            <p>If an account exists for <b>{{ email }}</b>, we have emailed a link to reset the password. The link works once and expires in 30 minutes.</p>
+            @if (resetFor) { <p class="demo-note">Demo: this is the page the email link opens. <button class="link" type="button" (click)="go2('reset')">Open the reset link</button></p> }
+            <p class="small"><button class="link" type="button" (click)="go2('login')">Back to sign in</button></p>
+          </div>
+        }
+        @case ('reset') {
+          <form class="panel" (ngSubmit)="reset()" novalidate>
+            <p class="small muted">Account: <b>{{ email }}</b></p>
+            <div class="field"><label for="np">New password</label><input id="np" [type]="show() ? 'text' : 'password'" name="np" [(ngModel)]="password" autocomplete="new-password" maxlength="128" />
+              <span class="hint">At least 8 characters, with a letter and a number.</span></div>
+            <div class="field"><label for="np2">Confirm new password</label><input id="np2" [type]="show() ? 'text' : 'password'" name="np2" [(ngModel)]="password2" autocomplete="new-password" maxlength="128" /></div>
+            <label class="chk"><input type="checkbox" name="sh" [checked]="show()" (change)="show.set(!show())" /> Show passwords</label>
+            @if (err()) { <p class="err" role="alert">{{ err() }}</p> }
+            <button class="btn btn-primary full" type="submit" [disabled]="busy()">Save new password and sign in</button>
+          </form>
+        }
+      }
       <div class="panel demo">
         <h2 class="h3">Demo accounts</h2>
-        <p class="muted small">For the client presentation — one click, no OTP.</p>
+        <p class="muted small">For the client presentation — one click. Or sign in with the email below and the password <b>{{ demoPw }}</b>.</p>
         <button class="btn btn-line full" type="button" (click)="demo('c-college')"><cs-icon name="building" [size]="18" /> College buyer (contract prices, credit)</button>
         <button class="btn btn-line full" type="button" (click)="demo('c-priya')"><cs-icon name="user" [size]="18" /> Individual buyer</button>
         <button class="btn btn-line full" type="button" (click)="demo('c-hosp')"><cs-icon name="building" [size]="18" /> Hospital (waiting for approval)</button>
+        <p class="small muted mono">chemistry&#64;slasc.example.in<br>priya&#64;example.com<br>purchase&#64;vhospital.example.in</p>
         <hr>
         <p class="small"><b>New institution?</b> <a routerLink="/register">Register for an account</a></p>
       </div>
     </div>
   </div>`,
   styles: [`.narrow { max-width: 900px; } .cols { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; align-items: start; }
-    .full { width: 100%; margin-top: 6px; } .demo { display: grid; gap: 10px; } .h3 { font-size: 1.15rem; margin: 0; } .demo p { margin: 0; }
-    .err { color: var(--litmus); font-weight: 600; font-size: .85rem; } .link { background: none; border: 0; color: var(--petrol); text-decoration: underline; cursor: pointer; font: inherit; }
+    .full { width: 100%; margin-top: 10px; } .demo { display: grid; gap: 10px; } .h3 { font-size: 1.15rem; margin: 0; } .demo p { margin: 0; }
+    .err { color: var(--litmus); font-weight: 600; font-size: .88rem; margin: 8px 0 0; } .link { background: none; border: 0; padding: 0; color: var(--petrol); text-decoration: underline; cursor: pointer; font: inherit; }
+    .center { text-align: center; margin: 14px 0 0; } .mono { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; line-height: 1.7; }
+    .row-between { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 2px 0 4px; font-size: .9rem; }
+    .chk { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; font-size: .9rem; } .chk input { width: 16px; height: 16px; accent-color: var(--teal); }
+    .pw { position: relative; display: block; } .pw input { padding-right: 70px; }
+    .eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: 0; font: inherit; font-size: .82rem; font-weight: 600; color: var(--muted); cursor: pointer; padding: 6px 8px; border-radius: 6px; }
+    .eye:hover { color: var(--ink); background: #f1f2ef; }
     hr { border: 0; border-top: 1px solid var(--line); width: 100%; } @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }`],
 })
 export class Login {
   private readonly store = inject(Store);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  readonly step = signal<'phone' | 'otp' | 'new'>('phone');
+  readonly step = signal<LoginStep>('login');
   readonly err = signal('');
-  phone = ''; otp = ''; name = ''; email = '';
-  private tries = 0;
+  readonly busy = signal(false);
+  readonly show = signal(false);
+  readonly demoPw = DEMO_PASSWORD;
+  readonly heading: Record<LoginStep, string> = { login: 'Sign in', register: 'Create an account', forgot: 'Reset your password', sent: 'Check your email', reset: 'Choose a new password' };
+  readonly sub: Record<LoginStep, string> = {
+    login: 'Sign in with your email and password.', register: 'Order online, track deliveries and download GST invoices.',
+    forgot: 'Enter the email you registered with. We will send a reset link.', sent: 'Follow the link in the email to set a new password.', reset: 'Use at least 8 characters, with a letter and a number.',
+  };
+  email = ''; password = ''; password2 = ''; name = ''; phone = ''; remember = true;
+  resetFor: string | null = null;
+  /** wrong attempts per email in this browser; the live API also limits by account and by IP */
+  private fails = new Map<string, { n: number; until: number }>();
 
-  sendOtp(): void {
-    const p = cleanPhone(this.phone);
-    if (!PHONE.test(p)) return this.err.set('Enter a 10-digit Indian mobile number starting with 6, 7, 8 or 9.');
-    this.phone = p; this.err.set(''); this.otp = ''; this.tries = 0; this.step.set('otp');
-  }
-  verify(): void {
-    if (this.step() === 'new') return this.create();
-    if (this.tries >= 5) return this.err.set('Too many wrong codes. Ask for a new code.');
-    if (this.otp.trim() !== '123456') { this.tries++; return this.err.set(`That code is not right. ${5 - this.tries} tries left.`); }
-    const c = this.store.findCustomerByPhone(this.phone);
-    if (!c) { this.err.set(''); this.step.set('new'); return; }
+  go2(s: LoginStep): void { this.err.set(''); this.password = ''; this.password2 = ''; this.step.set(s); }
+
+  async login(): Promise<void> {
+    const em = this.email.trim().toLowerCase();
+    if (!EMAIL.test(em) || !this.password) return this.err.set('Enter your email and password.');
+    const f = this.fails.get(em);
+    if (f && f.until > Date.now()) return this.err.set(`Too many wrong attempts. Try again in ${Math.ceil((f.until - Date.now()) / 60000)} minutes, or reset your password.`);
+    this.busy.set(true);
+    const c = await this.store.checkPassword(em, this.password);
+    this.busy.set(false);
+    if (!c) {
+      const n = (f?.n ?? 0) + 1;
+      this.fails.set(em, { n, until: n >= 5 ? Date.now() + 15 * 60_000 : 0 });
+      this.password = '';
+      return this.err.set(n >= 5 ? 'Too many wrong attempts. Try again in 15 minutes, or reset your password.' : 'Email or password is not right.');
+    }
+    this.fails.delete(em);
     this.store.loginCustomer(c.id);
-    this.go();
+    this.next();
   }
-  create(): void {
-    if (this.name.trim().length < 2 || !EMAIL.test(this.email.trim())) return this.err.set('Enter your name and a valid email.');
-    const c = this.store.registerRetail(this.name.trim(), this.phone, this.email.trim());
+
+  async register(): Promise<void> {
+    const em = this.email.trim().toLowerCase(), ph = cleanPhone(this.phone);
+    if (this.name.trim().length < 2) return this.err.set('Enter your name.');
+    if (!EMAIL.test(em)) return this.err.set('Enter a valid email.');
+    if (!PHONE.test(ph)) return this.err.set('Enter a 10-digit mobile number.');
+    const bad = passwordProblem(this.password, em);
+    if (bad) return this.err.set(bad);
+    if (this.password !== this.password2) return this.err.set('The two passwords do not match.');
+    if (this.store.findCustomerByEmail(em)) return this.err.set('This email already has an account. Sign in or reset the password.');
+    this.busy.set(true);
+    const c = this.store.registerRetail(this.name.trim().slice(0, 80), ph, em, await pwHash(em, this.password));
+    this.busy.set(false);
     this.store.loginCustomer(c.id);
-    this.go();
+    this.store.say('Account created. (Live site: we first email a link to confirm the address.)');
+    this.next();
   }
-  demo(id: string): void { this.store.loginCustomer(id); this.go(); }
-  private go(): void {
+
+  forgot(): void {
+    const em = this.email.trim().toLowerCase();
+    if (!EMAIL.test(em)) return this.err.set('Enter a valid email.');
+    // same answer whether or not the account exists, so nobody can probe which emails are registered
+    this.resetFor = this.store.findCustomerByEmail(em)?.id ?? null;
+    this.email = em; this.go2('sent');
+  }
+
+  async reset(): Promise<void> {
+    if (!this.resetFor) return this.go2('forgot');
+    const bad = passwordProblem(this.password, this.email);
+    if (bad) return this.err.set(bad);
+    if (this.password !== this.password2) return this.err.set('The two passwords do not match.');
+    this.busy.set(true);
+    await this.store.setPassword(this.resetFor, this.password);
+    this.busy.set(false);
+    this.fails.delete(this.email);
+    this.store.loginCustomer(this.resetFor);
+    this.resetFor = null;
+    this.next();
+  }
+
+  demo(id: string): void { this.store.loginCustomer(id); this.next(); }
+  private next(): void {
     const next = this.route.snapshot.queryParamMap.get('next');
     this.router.navigateByUrl(next && next.startsWith('/') && !next.startsWith('//') ? next : '/account');
   }
@@ -114,7 +209,10 @@ export class Login {
           <div class="field"><label for="n">Your name</label><input id="n" type="text" name="n" [(ngModel)]="f.name" [class.invalid]="e('name')" />@if (e('name'); as m) { <span class="err">{{ m }}</span> }</div>
           <div class="field"><label for="r">Your role</label><input id="r" type="text" name="r" [(ngModel)]="f.role" placeholder="e.g. HOD, Purchase officer" /></div>
           <div class="field"><label for="p">Mobile</label><input id="p" type="tel" name="p" [(ngModel)]="f.phone" maxlength="14" [class.invalid]="e('phone')" />@if (e('phone'); as m) { <span class="err">{{ m }}</span> }</div>
-          <div class="field"><label for="em">Official email</label><input id="em" type="email" name="em" [(ngModel)]="f.email" [class.invalid]="e('email')" />@if (e('email'); as m) { <span class="err">{{ m }}</span> }</div>
+          <div class="field"><label for="em">Official email <span class="muted">(used to sign in)</span></label><input id="em" type="email" name="em" [(ngModel)]="f.email" autocomplete="email" [class.invalid]="e('email')" />@if (e('email'); as m) { <span class="err">{{ m }}</span> }</div>
+          <div class="field"><label for="pw1">Password</label><input id="pw1" type="password" name="pw1" [(ngModel)]="f.pw" autocomplete="new-password" maxlength="128" [class.invalid]="e('pw')" />
+            <span class="hint">At least 8 characters, with a letter and a number.</span>@if (e('pw'); as m) { <span class="err">{{ m }}</span> }</div>
+          <div class="field"><label for="pw2">Confirm password</label><input id="pw2" type="password" name="pw2" [(ngModel)]="f.pw2" autocomplete="new-password" maxlength="128" [class.invalid]="e('pw2')" />@if (e('pw2'); as m) { <span class="err">{{ m }}</span> }</div>
         </div>
         <div class="field"><label for="doc">Letterhead or ID proof <span class="muted">(PDF or image, up to 5 MB)</span></label><input id="doc" type="file" accept=".pdf,image/*" (change)="file($event)" />
           @if (e('doc'); as m) { <span class="err">{{ m }}</span> } @else if (docName) { <span class="hint">Attached: {{ docName }}</span> }</div>
@@ -133,7 +231,7 @@ export class Register {
   readonly done = signal(false);
   readonly tried = signal(false);
   docName = ''; docErr = '';
-  f = { org: '', dept: '', type: '', gstin: '', city: '', state: 'Tamil Nadu', name: '', role: '', phone: '', email: '' };
+  f = { org: '', dept: '', type: '', gstin: '', city: '', state: 'Tamil Nadu', name: '', role: '', phone: '', email: '', pw: '', pw2: '' };
 
   e(k: string): string | null {
     if (!this.tried()) return null;
@@ -146,7 +244,9 @@ export class Register {
       case 'city': return f.city.trim().length < 2 ? 'Enter the city.' : null;
       case 'name': return f.name.trim().length < 2 ? 'Enter your name.' : null;
       case 'phone': return !PHONE.test(cleanPhone(f.phone)) ? 'Enter a 10-digit mobile number.' : this.store.findCustomerByPhone(cleanPhone(f.phone)) ? 'This mobile already has an account — sign in instead.' : null;
-      case 'email': return !EMAIL.test(f.email.trim()) ? 'Enter a valid email.' : null;
+      case 'email': return !EMAIL.test(f.email.trim()) ? 'Enter a valid email.' : this.store.findCustomerByEmail(f.email) ? 'This email already has an account — sign in instead.' : null;
+      case 'pw': return passwordProblem(f.pw, f.email.trim());
+      case 'pw2': return f.pw !== f.pw2 ? 'The two passwords do not match.' : null;
       case 'doc': return this.docErr || (!this.docName ? 'Attach a letterhead or ID proof.' : null);
     }
     return null;
@@ -159,10 +259,13 @@ export class Register {
     if (!/^(application\/pdf|image\/(png|jpeg|webp))$/.test(file.type)) { this.docErr = 'Only PDF, PNG, JPG or WEBP files.'; return; }
     this.docName = file.name.slice(0, 80);
   }
-  submit(): void {
+  async submit(): Promise<void> {
     this.tried.set(true);
-    if (['org', 'type', 'gstin', 'city', 'name', 'phone', 'email', 'doc'].some((k) => this.e(k))) return;
-    const c = this.store.registerInstitution({ ...this.f, org: this.f.org.trim(), dept: this.f.dept.trim() || 'Main office', phone: cleanPhone(this.f.phone), email: this.f.email.trim(), role: this.f.role.trim() || 'Buyer' });
+    if (['org', 'type', 'gstin', 'city', 'name', 'phone', 'email', 'pw', 'pw2', 'doc'].some((k) => this.e(k))) return;
+    const em = this.f.email.trim().toLowerCase();
+    const { pw2: _, ...rest } = this.f;
+    const c = this.store.registerInstitution({ ...rest, org: this.f.org.trim(), dept: this.f.dept.trim() || 'Main office', phone: cleanPhone(this.f.phone), email: em, role: this.f.role.trim() || 'Buyer', pw: await pwHash(em, this.f.pw) });
+    this.f.pw = ''; this.f.pw2 = '';
     this.store.loginCustomer(c.id);
     this.done.set(true);
   }

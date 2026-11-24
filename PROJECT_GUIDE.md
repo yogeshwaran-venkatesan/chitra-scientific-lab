@@ -108,3 +108,17 @@ Admin → Products supports the full product lifecycle:
 - Category product counts on Home and Products are live (`store.categoryCount`).
 - Tests: `/tmp/crud.py` (add/validate/edit/hide/delete/roles/audit), `/tmp/img.py` (photo upload, rejection, gallery, persistence) — all pass;
   flow2 15/15; axe 0 violations including the open drawer.
+
+## Customer sign-in — email + password (changed 24 Nov 2026, replaces mobile OTP)
+- `/login` has four views: sign in (email, password, show/hide, "Keep me signed in"), create account (name, email, mobile for delivery,
+  password + confirm), forgot password (same message whether or not the email exists) and reset (demo shows the page the email link opens).
+- Rules in `store.ts → passwordProblem()`: 8–128 chars, a letter and a number, no common passwords, no email name inside.
+- 5 wrong attempts for one email → 15-minute lock (prototype: in that browser tab; live: on the server per account and per IP).
+- Institution registration (`/register`) now asks for a password; the official email is the sign-in.
+- My account → Profile has **Change password** (current + new + confirm).
+- Prototype stores only a SHA-256 hash (`pwHash()`), never the password; the live API uses Argon2id. Demo customers' password: `Demo@1234`
+  (chemistry@slasc.example.in, priya@example.com, purchase@vhospital.example.in); one-click demo buttons still work.
+- Staff admin sign-in is unchanged in the prototype (pick a staff member); live = email + password (+ authenticator app for the Owner).
+- No SMS anywhere: order/quotation updates are email + WhatsApp. `PROJECT.md §5.4` has the live configuration.
+- Tests: `/tmp/pw.py` (lockout, weak/mismatch/duplicate, register, change, forgot/reset, institution sign-up, hash-only storage) — all pass;
+  flow2 now signs in with a password (15/15); axe 0 violations on all sign-in views and the profile page.
